@@ -1,0 +1,21 @@
+[tool.poetry]
+name = "pydit"
+version = "0.1.0"
+description = "A python dependency injection lib"
+authors = ["Marcelo Almeida (MrM4rc) <marcelorap345@gmail.com>"]
+license = "MIT"
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.10"
+
+
+[tool.poetry.group.dev.dependencies]
+pyright = "^1.1.382.post1"
+flake8 = "^7.1.1"
+debugpy = "^1.8.6"
+black = "^24.8.0"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
