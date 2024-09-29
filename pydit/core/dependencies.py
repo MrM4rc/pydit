@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from typing import Any
-from src.core.types.dependency import Dependency as DependencyType
+from pydit.types.dependency import Dependency as DependencyType
 
 
 @dataclass
