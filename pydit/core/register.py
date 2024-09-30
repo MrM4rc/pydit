@@ -1,6 +1,10 @@
 import inspect
 from typing import Any, Optional, cast, overload
-from src.core.injector.dependencies import Dependency, dependencies
+<<<<<<<< HEAD:pydit/injector/register.py
+from pydit.injector.dependencies import Dependency, dependencies
+========
+from pydit.core.dependencies import Dependency, dependencies
+>>>>>>>> ce2f148 (feature: added dependency resolver):pydit/core/register.py
 
 
 @overload
