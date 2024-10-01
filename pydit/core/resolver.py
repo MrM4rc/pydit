@@ -8,7 +8,7 @@ from pydit.utils.remove_dunders import remove_dunders
 
 
 class DependencyResolver:
-    def _resolve_dependencies(self, type_: Any, token: Optional[str] = None) -> Dependency:
+    def resolve_dependencies(self, type_: Any, token: Optional[str] = None) -> Dependency:
         dependency: Dependency | None = None
 
         if token:
