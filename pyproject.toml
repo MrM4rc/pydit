@@ -16,6 +16,7 @@ flake8 = "^7.0.0"
 debugpy = "^1.8.6"
 black = "^24.8.0"
 pyproject-flake8 = "^7.0.0"
+basedpyright = "^1.18.2"
 
 [build-system]
 requires = ["poetry-core"]
@@ -26,3 +27,9 @@ line-length = 91
 
 [tool.flake8]
 max-line-length = 91
+
+[tool.pyright]
+# typeCheckingMode = "basic"
+include = ["./pydit"]
+# basedpyright config
+reportAny = false
