@@ -1,5 +1,5 @@
 import inspect
-from typing import Any, Literal, Optional, get_type_hints
+from typing import Any, Literal, get_type_hints
 from pydit.exceptions.dependency_not_found import PyDitDependencyNotFoundException
 from pydit.types.dependency import Dependency
 from pydit.core.dependencies import dependencies
@@ -8,7 +8,7 @@ from pydit.utils.remove_dunders import remove_dunders
 
 
 class DependencyResolver:
-    def resolve_dependencies(self, type_: Any, token: Optional[str] = None) -> Dependency:
+    def resolve_dependencies(self, type_: Any, token: str | None = None) -> Dependency:
         dependency: Dependency | None = None
 
         if token:
@@ -81,8 +81,8 @@ class DependencyResolver:
         ]
 
         for method_name in type_properties:
-            type_method = getattr(type_, method_name)
-            dependency_method = getattr(dep_klass, method_name)
+            type_method = getattr(type_, method_name, None)
+            dependency_method = getattr(dep_klass, method_name, None)
 
             if get_type_hints(type_method) != get_type_hints(dependency_method):
                 return False

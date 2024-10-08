@@ -71,17 +71,3 @@ class PyDit:
         This function will resolve __init__ signature in the future
         """
         return dependency()
-
-
-if __name__ == "__main__":
-    p = PyDit()
-
-    p.add_dependency("Hello World", token="my_deps")
-
-    class Test:
-        @p.inject(token="my_deps")
-        def t(self) -> str:
-            return ""
-
-    t = Test()
-    print(t.t)

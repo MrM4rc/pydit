@@ -1,0 +1,23 @@
+[tool.poetry]
+name = "simple-http"
+version = "0.1.0"
+description = ""
+authors = ["Marcelo Almeida (MrM4rc) <marcelorap345@gmail.com>"]
+license = "bsd3"
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.10"
+fastapi = {extras = ["standard"], version = "^0.115.0"}
+pydit = {path = "../.."}
+
+
+[tool.poetry.group.dev.dependencies]
+black = "^24.10.0"
+flake8 = "^7.1.1"
+basedpyright = "^1.18.3"
+debugpy = "^1.8.6"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
