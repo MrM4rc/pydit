@@ -5,6 +5,7 @@ from pydit.types.dependency import Dependency
 from pydit.core.dependencies import dependencies
 from pydit.utils.is_dunder import is_dunder
 from pydit.utils.remove_dunders import remove_dunders
+from pydit.utils.remove_private_protected import remove_private_and_protected_items
 
 
 class DependencyResolver:
@@ -66,8 +67,10 @@ class DependencyResolver:
 
         type_properties = self._get_properties(type_, check_dunders, dunders_to_check)
 
-        type_attributes = get_type_hints(type_)
-        dep_attributes = get_type_hints(dep_klass)
+        type_attributes = remove_private_and_protected_items(get_type_hints(type_), type_)
+        dep_attributes = remove_private_and_protected_items(
+            get_type_hints(dep_klass), dep_klass
+        )
 
         if type_attributes != dep_attributes:
             return False
@@ -80,12 +83,20 @@ class DependencyResolver:
             if property_name not in checked
         ]
 
+        type_properties = remove_private_and_protected_items(type_properties, type_)
+
         for method_name in type_properties:
             type_method = getattr(type_, method_name, None)
             dependency_method = getattr(dep_klass, method_name, None)
 
-            if get_type_hints(type_method) != get_type_hints(dependency_method):
-                return False
+            if type_method is None or not inspect.isfunction(type_method):
+                continue
+
+            if (
+                dependency_method is None or not inspect.isfunction(dependency_method)
+            ) or get_type_hints(type_method) != get_type_hints(dependency_method):
+                is_compatible = False
+                break
 
         return is_compatible
 
