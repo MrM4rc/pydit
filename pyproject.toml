@@ -1,11 +1,16 @@
 [tool.poetry]
 name = "pydit"
-version = "0.1.0"
+version = "0.1.2"
 description = "A python dependency injection lib"
 authors = ["Marcelo Almeida (MrM4rc) <marcelorap345@gmail.com>"]
-license = "gpl3"
+license = "bsd3"
 readme = "README.md"
-
+classifiers = [
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Dependency Injection"
+]
 [tool.poetry.dependencies]
 python = "^3.10"
 
@@ -16,6 +21,7 @@ flake8 = "^7.0.0"
 debugpy = "^1.8.6"
 black = "^24.8.0"
 pyproject-flake8 = "^7.0.0"
+basedpyright = "^1.18.2"
 
 [build-system]
 requires = ["poetry-core"]
@@ -26,3 +32,9 @@ line-length = 91
 
 [tool.flake8]
 max-line-length = 91
+
+[tool.pyright]
+# typeCheckingMode = "basic"
+include = ["./pydit"]
+# basedpyright config
+reportAny = false
