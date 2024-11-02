@@ -1,4 +1,5 @@
 import inspect
+from types import NoneType
 from typing import Any, Literal, get_type_hints
 from pydit.exceptions.dependency_not_found import PyDitDependencyNotFoundException
 from pydit.types.dependency import Dependency
@@ -92,9 +93,20 @@ class DependencyResolver:
             if type_method is None or not inspect.isfunction(type_method):
                 continue
 
-            if (
-                dependency_method is None or not inspect.isfunction(dependency_method)
-            ) or get_type_hints(type_method) != get_type_hints(dependency_method):
+            if dependency_method is None or not inspect.isfunction(dependency_method):
+                is_compatible = False
+                break
+
+            dep_signature = get_type_hints(dependency_method)
+            type_signature = get_type_hints(dependency_method)
+
+            if "return" not in dep_signature:
+                dep_signature["return"] = NoneType
+
+            if "return" not in type_signature:
+                type_signature["return"] = NoneType
+
+            if type_signature != dep_signature:
                 is_compatible = False
                 break
 

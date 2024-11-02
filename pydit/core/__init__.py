@@ -15,7 +15,7 @@ class PyDit:
     def __init__(self):
         self._dep_resolver = DependencyResolver()
 
-    def add_dependency(self, value: Any, token: str | None):
+    def add_dependency(self, value: Any, token: str | None = None):
         injectable(value, token=token)
 
     def inject(self, *, token: str | None = None):
@@ -34,6 +34,7 @@ class PyDit:
         _token: str | None = None
         _dep_resolver: DependencyResolver
         _get_instance_fn: GetInstanceFnType[R]
+        _value: Any = None
 
         def __init__(
             self,
@@ -55,6 +56,9 @@ class PyDit:
 
         @override
         def __get__(self, _instance: Any, _obj: Any = None) -> R:
+            if self._value is not None:
+                return self._value
+
             dependency = self._dep_resolver.resolve_dependencies(
                 self._inject_type, self._token
             )
@@ -62,9 +66,15 @@ class PyDit:
             is_klass = inspect.isclass(dependency.value)
 
             if not is_klass:
+                self._value = dependency.value
+
                 return dependency.value
 
-            return self._get_instance_fn(dependency.value)
+            instance = self._get_instance_fn(dependency.value)
+
+            self._value = instance
+
+            return instance
 
     def _get_instance(self, dependency: type[R]) -> R:
         """
