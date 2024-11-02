@@ -33,7 +33,7 @@ class DependencyResolver:
         response: Dependency | None = None
 
         for dependency in dependencies.values():
-            if not type_._is_protocol:
+            if not getattr(type_, "_is_protocol", False):
                 klass = (
                     dependency.value.__class__
                     if not inspect.isclass(dependency.value)

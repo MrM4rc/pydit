@@ -10,6 +10,4 @@ class UserModule:
         pass
 
     def create(self, data: CreateUserModel) -> None:
-        CreateUserService(
-                self.user_repository
-        ).execute(data)
+        CreateUserService(self.user_repository).execute(data)
