@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
-from typing import Any, Protocol, cast, override
+from typing import Any, Protocol, cast
+from typing_extensions import override
 import unittest
 from uuid import UUID, uuid4
 import pydit

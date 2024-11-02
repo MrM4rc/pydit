@@ -1,5 +1,6 @@
 from abc import abstractmethod
-from typing import Literal, Protocol, override
+from typing import Literal, Protocol
+from typing_extensions import override
 import unittest
 from pydit.core.register import injectable
 from pydit.core.dependencies import dependencies

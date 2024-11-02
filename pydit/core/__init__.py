@@ -1,5 +1,6 @@
 import inspect
-from typing import Any, Callable, TypeVar, cast, get_type_hints, override
+from typing import Any, Callable, TypeVar, cast, get_type_hints
+from typing_extensions import override
 from pydit.core.register import injectable
 from pydit.core.resolver import DependencyResolver
 from pydit.exceptions.missing_property_type import MissingPropertyTypeException
