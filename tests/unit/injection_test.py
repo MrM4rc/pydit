@@ -5,7 +5,7 @@ from uuid import UUID, uuid4
 import pydit
 from pydit.core.dependencies import dependencies
 
-type UserType = dict[str, Any]
+UserType = dict[str, Any]
 
 
 class InjectionTest(unittest.TestCase):
