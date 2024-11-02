@@ -22,6 +22,7 @@ debugpy = "^1.8.6"
 black = "^24.8.0"
 pyproject-flake8 = "^7.0.0"
 basedpyright = "^1.18.2"
+pytest = "^8.3.3"
 
 [build-system]
 requires = ["poetry-core"]
@@ -38,3 +39,4 @@ max-line-length = 91
 include = ["./pydit"]
 # basedpyright config
 reportAny = false
+reportUninitializedInstanceVariable = false

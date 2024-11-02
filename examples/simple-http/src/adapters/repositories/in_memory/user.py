@@ -1,5 +1,6 @@
 from time import sleep
-from typing import TypedDict, override
+from typing import TypedDict
+from typing_extensions import override
 from uuid import UUID
 from src.configs.di import pydit
 from src.adapters.repositories.interfaces.user import UserRepository
