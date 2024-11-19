@@ -1,4 +1,3 @@
-import inspect
 from typing import Any, Callable, TypeVar, cast, get_type_hints
 from typing_extensions import override
 from pydit.core.register import injectable
@@ -25,7 +24,7 @@ class PyDit:
                 func=func,
                 token=token,
                 dep_resolver=self._dep_resolver,
-                get_instance_fn=self._get_instance,
+                get_value_fn=self._get_value,
             )
 
         return decorator
@@ -34,7 +33,7 @@ class PyDit:
         _inject_type: R
         _token: str | None = None
         _dep_resolver: DependencyResolver
-        _get_instance_fn: GetInstanceFnType[R]
+        _get_value_fn: GetInstanceFnType[R]
         _value: Any = None
 
         def __init__(
@@ -43,14 +42,14 @@ class PyDit:
             func: Callable[..., R],
             token: str | None = None,
             dep_resolver: DependencyResolver,
-            get_instance_fn: GetInstanceFnType[R]
+            get_value_fn: GetInstanceFnType[R]
         ):
             hints = get_type_hints(func)
 
             self._inject_type = cast(R, hints.get("return"))
             self._token = token
             self._dep_resolver = dep_resolver
-            self._get_instance_fn = get_instance_fn
+            self._get_value_fn = get_value_fn
 
             if self._inject_type is None:
                 raise MissingPropertyTypeException
@@ -64,20 +63,20 @@ class PyDit:
                 self._inject_type, self._token
             )
 
-            is_klass = inspect.isclass(dependency.value)
+            is_callable = callable(dependency.value)
 
-            if not is_klass:
+            if not is_callable:
                 self._value = dependency.value
 
                 return dependency.value
 
-            instance = self._get_instance_fn(dependency.value)
+            instance = self._get_value_fn(dependency.value)
 
             self._value = instance
 
             return instance
 
-    def _get_instance(self, dependency: type[R]) -> R:
+    def _get_value(self, dependency: type[R]) -> R:
         """
         This function will resolve __init__ signature in the future
         """

@@ -17,7 +17,12 @@ class InjectionTest(unittest.TestCase):
 
     def test_should_inject_by_token(self):
         self.pydit.add_dependency(
-            {"host": "localhost", "port": 1234, "user": "user", "password": "teste"},
+            {
+                "host": "localhost",
+                "port": 1234,
+                "user": "user",
+                "password": "teste",
+            },
             token="db_credentials",
         )
 
@@ -30,7 +35,12 @@ class InjectionTest(unittest.TestCase):
 
         self.assertEqual(
             db_service.credentials,
-            {"host": "localhost", "port": 1234, "user": "user", "password": "teste"},
+            {
+                "host": "localhost",
+                "port": 1234,
+                "user": "user",
+                "password": "teste",
+            },
         )
 
     def test_should_inject_by_subclass(self):
@@ -77,7 +87,12 @@ class InjectionTest(unittest.TestCase):
                 return self._users
 
         self.pydit.add_dependency(
-            {"host": "localhost", "port": 1234, "user": "user", "password": "teste"},
+            {
+                "host": "localhost",
+                "port": 1234,
+                "user": "user",
+                "password": "teste",
+            },
             token="db_credentials",
         )
         self.pydit.add_dependency(UserRepository)
@@ -117,7 +132,9 @@ class InjectionTest(unittest.TestCase):
             ],
         )
 
-        self.assertEqual(service.get_by_id(user_1), {"id": user_1, "name": "MrM4rc"})
+        self.assertEqual(
+            service.get_by_id(user_1), {"id": user_1, "name": "MrM4rc"}
+        )
 
     def test_should_inject_by_protocol_with_inheritance(self):
 
@@ -163,7 +180,12 @@ class InjectionTest(unittest.TestCase):
                 return self._users
 
         self.pydit.add_dependency(
-            {"host": "localhost", "port": 1234, "user": "user", "password": "teste"},
+            {
+                "host": "localhost",
+                "port": 1234,
+                "user": "user",
+                "password": "teste",
+            },
             token="db_credentials",
         )
         self.pydit.add_dependency(UserRepository)
@@ -203,7 +225,9 @@ class InjectionTest(unittest.TestCase):
             ],
         )
 
-        self.assertEqual(service.get_by_id(user_1), {"id": user_1, "name": "MrM4rc"})
+        self.assertEqual(
+            service.get_by_id(user_1), {"id": user_1, "name": "MrM4rc"}
+        )
 
     def test_should_inject_by_protocol_without_inheritance(self):
 
@@ -246,7 +270,12 @@ class InjectionTest(unittest.TestCase):
                 return self._users
 
         self.pydit.add_dependency(
-            {"host": "localhost", "port": 1234, "user": "user", "password": "teste"},
+            {
+                "host": "localhost",
+                "port": 1234,
+                "user": "user",
+                "password": "teste",
+            },
             token="db_credentials",
         )
         self.pydit.add_dependency(UserRepository)
@@ -286,4 +315,16 @@ class InjectionTest(unittest.TestCase):
             ],
         )
 
-        self.assertEqual(service.get_by_id(user_1), {"id": user_1, "name": "MrM4rc"})
+        self.assertEqual(
+            service.get_by_id(user_1), {"id": user_1, "name": "MrM4rc"}
+        )
+
+    def test_should_inject_a_callable_value(self):
+        self.pydit.add_dependency(lambda: {"hello": "world"}, "callable")
+
+        class MyService:
+            @self.pydit.inject(token="callable")
+            def some_prop(self) -> dict[str, Any]:
+                return {}
+
+        self.assertEqual(MyService().some_prop, {"hello": "world"})
