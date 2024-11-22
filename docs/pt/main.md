@@ -66,7 +66,7 @@ def setup_dependencies():
     pydit.add_dependency(dependency["dependency"], dependency.get("token"))
 ```
 
-**Chame a função de configurar as dependências no seu arquivo principal:**
+**Chame a função para configurar as dependências no seu arquivo principal:**
 
 > app/main.py
 
