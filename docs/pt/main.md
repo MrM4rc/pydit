@@ -1,32 +1,28 @@
 # PyDIT (Python Dependency Injection with Typing)
 
-## Other languages
+## Descrição
 
-[Português](./docs/pt/main.md)
+Usando PyDit você poderá fazer uso do princípio da inversão de dependências, usando classes abstratas ou protocolos para criar interfaces.
 
-## Description
+PyDit permite que seu código dependa somente de coisas abstratas, sem conhecer a implementação real.
 
-With PyDit you can use ABC and Protocol to make interfaces and use the power of Dependency Inversion Principle.<br />
+## Instalação
 
-PyDit allow your code to depend only abstract things, not the real implementation.
-
-## Install
-
-**With poetry**
+**Usando poetry**
 
 ```zsh
 poetry add pydit
 ```
 
-**With pip**
+**Usando pip**
 
 ```zsh
 pip install pydit
 ```
 
-## Usage
+## Uso
 
-Create the PyDit instance:
+Primeiro, vamos criar a instância do PyDit:
 
 > app/configs/di.py
 
@@ -36,7 +32,7 @@ from pydit import PyDit
 pydit = PyDit()
 ```
 
-Import the pydit instance and register your project's dependencies:
+Em seguida vamos importar a instância do PyDit e registrar as dependências:
 
 > app/configs/dependencies.py
 
@@ -46,10 +42,9 @@ from app.configs.di
 from app.adapters.repositories.sqlalchemy.user_repository import SqlalchemyUserRepository
 from app.configs.database import get_db_config
 
-
 def setup_dependencies():
   """
-  This is only a suggestion, you're free to configure it like you want
+  Isso é apenas uma sugestão, você pode configura-las da maneira que preferir
   """
 
   dependencies: list[dict[str, Any]] = [
@@ -71,7 +66,7 @@ def setup_dependencies():
     pydit.add_dependency(dependency["dependency"], dependency.get("token"))
 ```
 
-**Call the setup_dependencies in the main file**
+**Chame a função de configurar as dependências no seu arquivo principal:**
 
 > app/main.py
 
@@ -81,14 +76,14 @@ from app.config.di import setup_dependencies()
 setup_dependencies()
 ```
 
-### Injecting a dependency insinde a class
+### Injetando dependencias em uma classe
 
 > app/domain/user/services/create.py
 
 ```python
 from typing import cast, Any
 from app.configs.di import pydit
-# This class can be a Protocol or a clas that inherits from ABC
+# Esta classse pode ser um protocol ou uma class que herda de ABC
 from app.adapters.repositories.interfaces.user_repositgory import IUserRepository
 
 class CreateUserService:
@@ -107,12 +102,13 @@ class CreateUserService:
     print(self.other_property)
 ```
 
-How you can see, we're depending on the intarface `IUserRepository`, not the real `SqlalchemyUserRepository` implementation
+Como podemos ver no exemplo, a classe CreateUserService desconhece a existência da classe `SqlalchemyUserRepository`,<br />
+dependendo somente da intarface `IUserRepository`
 
 ## Features:
 
-- [x] Inject values based on type signature
-- [x] Inject values based on inheritance
-- [x] Inject values via token
-- [x] Resolves function dependencies, calling and injecting the call result
-- [ ] Inject values in function calls or class constructor `__init__` based on the arguments' signatures
+- [x] Injetar valores baseado na assinatura de tipos
+- [x] Injetar valores baseado na herança de classes
+- [x] Injetar valores via tokens
+- [x] Resolve dependencias do tipo função, chamando a dependência e injetando seu resultado
+- [ ] Injetar valores em funções ou construtores de classe `__init__` baseado na assinatura de argumentos
