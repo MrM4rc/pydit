@@ -1,6 +1,6 @@
 # PyDIT (Python Dependency Injection with Typing)
 
-## Other languages
+## Translations
 
 [Português](./docs/pt/main.md)
 
