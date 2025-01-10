@@ -38,7 +38,7 @@ Em seguida vamos importar a instância do PyDit e registrar as dependências:
 
 ```python
 from typing import Any
-from app.configs.di
+from app.configs.di import pydit
 from app.adapters.repositories.sqlalchemy.user_repository import SqlalchemyUserRepository
 from app.configs.database import get_db_config
 
