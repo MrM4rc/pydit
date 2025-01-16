@@ -15,13 +15,13 @@ PyDit allow your code to depend only abstract things, not the real implementatio
 **With poetry**
 
 ```zsh
-poetry add pydit
+poetry add python-pydit
 ```
 
 **With pip**
 
 ```zsh
-pip install pydit
+pip install python-pydit
 ```
 
 ## Usage

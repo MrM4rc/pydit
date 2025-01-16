@@ -4,7 +4,7 @@ version = "0.1.32"
 description = "A python dependency injection lib"
 authors = ["Marcelo Almeida (MrM4rc) <marcelorap345@gmail.com>"]
 license = "bsd3"
-readme = "README.md"
+readme = "./docs/pypi/main.md"
 keywords = ["Dependency Injection", "Python", "DI", "SOLID"]
 classifiers = [
   "Programming Language :: Python :: 3.10",
