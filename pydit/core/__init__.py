@@ -4,6 +4,7 @@ from pydit.core.register import injectable
 from pydit.core.resolver import DependencyResolver
 from pydit.exceptions.missing_property_type import MissingPropertyTypeException
 from pydit.types.dependency_property import DependencyPropertyType
+from pydit.utils.logging import disable_all_loggers
 
 
 R = TypeVar("R")
@@ -14,6 +15,9 @@ GetInstanceFnType = Callable[[type[R]], R]
 class PyDit:
     def __init__(self):
         self._dep_resolver = DependencyResolver()
+
+    def disable_logging(self):
+        disable_all_loggers()
 
     def add_dependency(self, value: Any, token: str | None = None):
         injectable(value, token=token)
@@ -59,9 +63,7 @@ class PyDit:
             if self._value is not None:
                 return self._value
 
-            dependency = self._dep_resolver.resolve_dependencies(
-                self._inject_type, self._token
-            )
+            dependency = self._dep_resolver.resolve_dependencies(self._inject_type, self._token)
 
             is_callable = callable(dependency.value)
 

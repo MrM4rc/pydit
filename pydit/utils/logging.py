@@ -1,6 +1,8 @@
 from pydit.adapters.logging.interfaces.logger import LoggerInterface
 from pydit.factories.logging import get_logging_factory
 
+all_loggers: list[LoggerInterface] = []
+
 
 def get_logger(name: str) -> LoggerInterface:
     """
@@ -17,4 +19,12 @@ def get_logger(name: str) -> LoggerInterface:
 
     logger_class = factory.logger
 
-    return logger_class.get_instance(name)
+    logger = logger_class.get_instance(name)
+    all_loggers.append(logger)
+
+    return logger
+
+
+def disable_all_loggers() -> None:
+    for logger in all_loggers:
+        logger.disable()
