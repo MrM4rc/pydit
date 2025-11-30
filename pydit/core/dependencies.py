@@ -10,3 +10,5 @@ class Dependency:
 
 
 dependencies: dict[str, DependencyType] = {}
+
+subclasses_map: dict[type[Any], list[DependencyType]] = {}

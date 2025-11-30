@@ -35,10 +35,10 @@ requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
 
 [tool.black]
-line-length = 91
+line-length = 115
 
 [tool.flake8]
-max-line-length = 91
+max-line-length = 115
 
 [tool.pyright]
 # typeCheckingMode = "basic"
