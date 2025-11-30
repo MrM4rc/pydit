@@ -13,7 +13,8 @@ class Dependency(Protocol):
     """
     Description:
         Can be used to get dependencies via token injection.
-        >>> @inject(token="my_deps")
-        >>> def foo(self) -> MyDepsClass:
-            pass
+
+    >>> @inject(token="my_deps")
+    >>> def foo(self) -> MyDepsClass:
+    >>>     pass
     """
