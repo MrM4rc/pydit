@@ -105,10 +105,37 @@ class CreateUserService:
 Como podemos ver no exemplo, a classe CreateUserService desconhece a existência da classe `SqlalchemyUserRepository`,<br />
 dependendo somente da intarface `IUserRepository`
 
+### Singleton
+
+Para utilizar o princípio singleton, basta passar o parâmetro singleton como true na função inject
+
+```python
+from typing import cast, Any
+from app.configs.di import pydit
+# Esta classse pode ser um protocol ou uma class que herda de ABC
+from app.adapters.repositories.interfaces.user_repositgory import IUserRepository
+
+class CreateUserService:
+  @pydit.inject(singleton=True)
+  def user_repository(self) -> IUserRepository:
+    return cast(IUserRepository, None)
+
+  @pydit.inject(token="test")
+  def other_property(self) -> str:
+    return ""
+
+  def execute(self, data: dict[str, Any]):
+    self.user_repository.create(data)
+
+    # Prints HELLO WORLD
+    print(self.other_property)
+```
+
 ## Features:
 
 - [x] Injetar valores baseado na assinatura de tipos
 - [x] Injetar valores baseado na herança de classes
 - [x] Injetar valores via tokens
 - [x] Resolve dependencias do tipo função, chamando a dependência e injetando seu resultado
+- [x] Suporte ao singleton
 - [ ] Injetar valores em funções ou construtores de classe `__init__` baseado na assinatura de argumentos
