@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "python-pydit"
-version = "0.1.34"
+version = "0.2.0"
 description = "A python dependency injection lib"
 authors = ["Marcelo Almeida (MrM4rc) <marcelorap345@gmail.com>"]
 license = "bsd3"
