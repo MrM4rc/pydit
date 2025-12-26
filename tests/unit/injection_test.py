@@ -132,9 +132,7 @@ class InjectionTest(unittest.TestCase):
             ],
         )
 
-        self.assertEqual(
-            service.get_by_id(user_1), {"id": user_1, "name": "MrM4rc"}
-        )
+        self.assertEqual(service.get_by_id(user_1), {"id": user_1, "name": "MrM4rc"})
 
     def test_should_inject_by_protocol_with_inheritance(self):
 
@@ -225,9 +223,7 @@ class InjectionTest(unittest.TestCase):
             ],
         )
 
-        self.assertEqual(
-            service.get_by_id(user_1), {"id": user_1, "name": "MrM4rc"}
-        )
+        self.assertEqual(service.get_by_id(user_1), {"id": user_1, "name": "MrM4rc"})
 
     def test_should_inject_by_protocol_without_inheritance(self):
 
@@ -315,9 +311,7 @@ class InjectionTest(unittest.TestCase):
             ],
         )
 
-        self.assertEqual(
-            service.get_by_id(user_1), {"id": user_1, "name": "MrM4rc"}
-        )
+        self.assertEqual(service.get_by_id(user_1), {"id": user_1, "name": "MrM4rc"})
 
     def test_should_inject_a_callable_value(self):
         self.pydit.add_dependency(lambda: {"hello": "world"}, "callable")
@@ -328,3 +322,33 @@ class InjectionTest(unittest.TestCase):
                 return {}
 
         self.assertEqual(MyService().some_prop, {"hello": "world"})
+
+    def test_should_inject_singleton_instance(self):
+        class MyService:
+            def __init__(self):
+                self.id = uuid4()
+
+        self.pydit.add_dependency(MyService)
+
+        class Consumer:
+            @self.pydit.inject(singleton=True)
+            def service_a(self) -> MyService:
+                return cast(Any, None)
+
+            @self.pydit.inject(singleton=True)
+            def service_b(self) -> MyService:
+                return cast(Any, None)
+
+            @self.pydit.inject()
+            def service_c(self) -> MyService:
+                return cast(Any, None)
+
+        consumer = Consumer()
+
+        self.assertEqual(consumer.service_a.id, consumer.service_b.id)
+
+        self.assertIs(consumer.service_a, consumer.service_b)
+
+        self.assertNotEqual(consumer.service_a.id, consumer.service_c.id)
+
+        self.assertIsNot(consumer.service_a, consumer.service_c)

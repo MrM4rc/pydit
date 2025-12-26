@@ -107,7 +107,33 @@ class CreateUserService:
     print(self.other_property)
 ```
 
-How you can see, we're depending on the intarface `IUserRepository`, not the real `SqlalchemyUserRepository` implementation
+How you can see, we're depending on the intarface `IUserRepository`, not the real `SqlalchemyUserRepository` implementation.
+
+### Singleton
+
+To use singleton approach, pass true to `singleton` parameter in inject fn.
+
+```python
+from typing import cast, Any
+from app.configs.di import pydit
+# This class can be a Protocol or a clas that inherits from ABC
+from app.adapters.repositories.interfaces.user_repositgory import IUserRepository
+
+class CreateUserService:
+  @pydit.inject(singleton=True)
+  def user_repository(self) -> IUserRepository:
+    return cast(IUserRepository, None)
+
+  @pydit.inject(token="test")
+  def other_property(self) -> str:
+    return ""
+
+  def execute(self, data: dict[str, Any]):
+    self.user_repository.create(data)
+
+    # Prints HELLO WORLD
+    print(self.other_property)
+```
 
 ## Features:
 
@@ -115,4 +141,5 @@ How you can see, we're depending on the intarface `IUserRepository`, not the rea
 - [x] Inject values based on inheritance
 - [x] Inject values via token
 - [x] Resolves function dependencies, calling and injecting the call result
+- [x] Singleton support
 - [ ] Inject values in function calls or class constructor `__init__` based on the arguments' signatures
