@@ -41,7 +41,7 @@ line-length = 115
 max-line-length = 115
 
 [tool.pyright]
-# typeCheckingMode = "basic"
+typeCheckingMode = "strict"
 include = ["./pydit"]
 # basedpyright config
 reportAny = false

@@ -1,9 +1,10 @@
 from typing import Any, Callable, Protocol, TypeVar, cast, get_type_hints
 from typing_extensions import override
 from pydit.core.register import injectable
-from pydit.core.resolver import DependencyResolver
+from pydit.core.resolver import DependencyMapping, DependencyResolver
 from pydit.exceptions.missing_property_type import MissingPropertyTypeException
 from pydit.types.dependency_property import DependencyPropertyType
+from pydit.types.dependency_proxy import DependencyProxy
 from pydit.utils.logging import disable_all_loggers
 
 
@@ -17,9 +18,6 @@ class GetInstanceFnType(Protocol[R]):
 class PyDit:
     __singleton_instances: dict[Any, Any] = {}
 
-    def __init__(self):
-        self._dep_resolver = DependencyResolver()
-
     def disable_logging(self):
         disable_all_loggers()
 
@@ -31,8 +29,7 @@ class PyDit:
             return self.DependencyProperty(
                 func=func,
                 token=token,
-                dep_resolver=self._dep_resolver,
-                get_value_fn=self._get_value,
+                get_value_fn=self.get_value,
                 singleton=singleton,
             )
 
@@ -41,7 +38,6 @@ class PyDit:
     class DependencyProperty(DependencyPropertyType[R]):
         _inject_type: R
         _token: str | None = None
-        _dep_resolver: DependencyResolver
         _get_value_fn: GetInstanceFnType[R]
         _value: Any = None
         _singleton: bool = False
@@ -51,7 +47,6 @@ class PyDit:
             *,
             func: Callable[..., R],
             token: str | None = None,
-            dep_resolver: DependencyResolver,
             get_value_fn: GetInstanceFnType[R],
             singleton: bool = False
         ):
@@ -59,7 +54,6 @@ class PyDit:
 
             self._inject_type = cast(R, hints.get("return"))
             self._token = token
-            self._dep_resolver = dep_resolver
             self._get_value_fn = get_value_fn
             self._singleton = singleton
 
@@ -75,11 +69,14 @@ class PyDit:
 
             return self._value
 
-    def _get_value(self, type_: type[R] | R, token: str | None = None, singleton: bool = False) -> R:
+    def get_value(self, type_: type[R] | R, token: str | None = None, singleton: bool = False) -> R:
         """
         This function will resolve __init__ signature in the future
         """
-        dependency = self._dep_resolver.resolve_dependencies(type_, token)
+        dep_resolver = DependencyResolver()
+        resolver_response = dep_resolver.resolve(type_, token)
+
+        dependency = resolver_response[0][0]
 
         singleton_key = dependency.value if "__hash__" in dir(dependency.value) else dependency.token
 
@@ -88,14 +85,48 @@ class PyDit:
 
         is_callable = callable(dependency.value)
 
-        response: R
-
         if not is_callable:
-            response = cast(R, dependency.value)
-        else:
-            response = dependency.value()
+            return cast(R, dependency.value)
+
+        response = self._instantiate_type(resolver_response)[0]
 
         if singleton:
             self.__singleton_instances[singleton_key] = response
+
+        return response
+
+    def _instantiate_type(
+        self, resolver_response: DependencyMapping, solved_klasses: dict[type[Any], Any] | None = None
+    ) -> list[Any]:
+        response: list[Any] = []
+
+        if solved_klasses is None:
+            solved_klasses = {}
+
+        for dependency, parameters in resolver_response:
+            is_callable = callable(dependency.value)
+
+            if not is_callable:
+                response.append(dependency.value)
+                continue
+
+            proxies: list[DependencyProxy] = []
+
+            if dependency.value in solved_klasses:
+                response.append(solved_klasses[dependency.value])
+                continue
+
+            for _ in parameters:
+                proxies.append(DependencyProxy(None))
+
+            solved = dependency.value(*proxies)
+            response.append(solved)
+            solved_klasses[dependency.value] = solved
+
+            if len(parameters) > 0:
+                solved_params = self._instantiate_type(parameters, solved_klasses)
+
+                for proxy, real in zip(proxies, solved_params):
+                    setattr(proxy, "_pydit_value", real)
 
         return response

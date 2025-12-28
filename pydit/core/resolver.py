@@ -1,23 +1,28 @@
 import inspect
 from time import time
-from types import NoneType
+from types import MappingProxyType, NoneType
 from typing import Any, Literal, get_type_hints
 from pydit.exceptions.dependency_not_found import PyDitDependencyNotFoundException
-from pydit.types.dependency import Dependency
-from pydit.core.dependencies import dependencies, subclasses_map
+from pydit.exceptions.no_default_value import MissingDefaultValueException
+from pydit.types.dependency import IDependency
+from pydit.core.dependencies import Dependency, EmptyDependency, dependencies, subclasses_map
 from pydit.utils.is_dunder import is_dunder
 from pydit.utils.logging import get_logger
 from pydit.utils.remove_dunders import remove_dunders
 from pydit.utils.remove_private_protected import remove_private_and_protected_items
 
 
+DependencyMapping = list[tuple[IDependency, "DependencyMapping"]]
+
+
 class DependencyResolver:
     def __init__(self):
         self.logger = get_logger("pydit.core.resolver")
+        self._solved_types: dict[type[Any], DependencyMapping] | None = None
 
-    def resolve_dependencies(self, type_: Any, token: str | None = None) -> Dependency:
+    def resolve(self, type_: Any, token: str | None = None) -> DependencyMapping:
         start = time()
-        dependency: Dependency | None = None
+        dependency: IDependency | None = None
 
         if token:
             dependency = dependencies.get(token)
@@ -32,7 +37,14 @@ class DependencyResolver:
             f"Resolved dependency '{dependency.token}' " f"in {round((time() - start) * 1000, 2)} ms"
         )
 
-        return dependency
+        dependency_mapping: DependencyMapping = []
+
+        if inspect.isclass(dependency.value):
+            dependency_mapping = self._get_class_dependencies(dependency)
+
+        response: DependencyMapping = [(dependency, dependency_mapping)]
+
+        return response
 
     def _resolve_by_type(
         self,
@@ -40,27 +52,16 @@ class DependencyResolver:
         *,
         check_dunders: bool = False,
         dunders_to_check: Literal["all"] | list[str] = "all",
-    ) -> Dependency | None:
-        response: Dependency | None = None
-
-        is_protocol = getattr(type_, "_is_protocol", False)
+    ) -> IDependency | None:
+        response: IDependency | None = None
 
         if type_ in subclasses_map:
             response = subclasses_map[type_][0]
             self.logger.debug(f"Resolved dependency by subclass map {type_}: {response}")
 
-        if response is not None:
             return response
 
         for dependency in dependencies.values():
-            if not is_protocol:
-                klass = dependency.value.__class__ if not inspect.isclass(dependency.value) else dependency.value
-                response = dependency if issubclass(klass, type_) else response
-
-                if response is not None:
-                    self.logger.debug(f"Resolved dependency by subclass {type_}: {response}")
-                    break
-
             if self._check_compatibility_by_annotations(type_, dependency, check_dunders, dunders_to_check):
                 response = dependency
                 self.logger.debug(f"Resolved dependency by annotations compatibility {type_}: {response}")
@@ -68,10 +69,32 @@ class DependencyResolver:
 
         return response
 
+    def _get_class_dependencies(
+        self,
+        dependency: IDependency,
+    ) -> DependencyMapping:
+        first_dependency = False
+
+        dependency_mapping: DependencyMapping = []
+
+        if inspect.isclass(dependency.value):
+            if self._solved_types is None:
+                self._solved_types = {}
+                first_dependency = True
+                self._solved_types[dependency.value] = dependency_mapping
+
+            if dependency.value in self._solved_types and not first_dependency:
+                return []
+
+            dependency_mapping.extend(self._resolve_signature(dependency.value))
+            self._solved_types[dependency.value] = dependency_mapping
+
+        return dependency_mapping
+
     def _check_compatibility_by_annotations(
         self,
         type_: type[Any],
-        dependency: Dependency,
+        dependency: IDependency,
         check_dunders: bool = False,
         dunders_to_check: Literal["all"] | list[str] = "all",
     ) -> bool:
@@ -138,3 +161,68 @@ class DependencyResolver:
                 ]
 
         return type_properties
+
+    def _resolve_signature(
+        self,
+        type_: type[Any],
+    ) -> DependencyMapping:
+
+        parameters = self._get_class_parameters(type_)
+        response: DependencyMapping = []
+
+        for parameter in parameters.values():
+            if str(parameter.kind) in ("VAR_POSITIONAL", "VAR_KEYWORD"):
+                continue
+
+            if not self._is_dependency_parameter(parameter):
+                response.append((self._handle_common_parameter(parameter), []))
+                continue
+
+            response.extend(self._handle_dependency_parameter(parameter))
+
+        return response
+
+    def _handle_dependency_parameter(
+        self,
+        parameter: inspect.Parameter,
+    ) -> DependencyMapping:
+        constructor_dependency = parameter.default
+
+        annotation_type: Any = None
+        token: str | None = None
+
+        if isinstance(constructor_dependency, EmptyDependency):
+            annotation_type = parameter.annotation
+        elif isinstance(constructor_dependency, Dependency):
+            annotation_type = constructor_dependency.value
+            token = constructor_dependency.token
+
+        return self.resolve(
+            type_=annotation_type,
+            token=token,
+        )
+
+    def _handle_common_parameter(
+        self,
+        parameter: inspect.Parameter,
+    ) -> IDependency:
+        default_value = parameter.default
+
+        if default_value is inspect.Parameter.empty:
+            raise MissingDefaultValueException(parameter.name)
+
+        dependency = Dependency(value=default_value, token=f"{parameter.name}")
+
+        return dependency
+
+    def _is_dependency_parameter(self, parameter: inspect.Parameter) -> bool:
+        default_value = parameter.default
+
+        return default_value is not inspect.Parameter.empty and (
+            isinstance(default_value, Dependency) or isinstance(default_value, EmptyDependency)
+        )
+
+    def _get_class_parameters(self, class_: type[Any]) -> MappingProxyType[str, inspect.Parameter]:
+        signature = inspect.signature(class_, eval_str=True)
+
+        return signature.parameters
