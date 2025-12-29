@@ -86,11 +86,14 @@ class DependencyResolver:
         if type_attributes != dep_attributes:
             return False
 
-        checked = type_attributes.keys()
+        verified = type_attributes.keys()
 
-        type_properties = [property_name for property_name in type_properties if property_name not in checked]
+        type_properties = [property_name for property_name in type_properties if property_name not in verified]
 
         type_properties = remove_private_and_protected_items(type_properties, type_)
+
+        if len(type_properties) == 0 and len(type_attributes) == 0:
+            return False
 
         for method_name in type_properties:
             type_method = getattr(type_, method_name, None)
