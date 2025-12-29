@@ -5,6 +5,7 @@ import unittest
 from pydit.core.register import injectable
 from pydit.core.dependencies import dependencies
 from pydit.core.resolver import DependencyResolver
+from pydit.exceptions.dependency_not_found import PyDitDependencyNotFoundException
 
 
 class ResolverTest(unittest.TestCase):
@@ -78,3 +79,57 @@ class ResolverTest(unittest.TestCase):
         dep = self.resolver.resolve_dependencies(Test)
 
         self.assertEqual(dep.value, Subclass)
+
+    def test_should_not_resolve_incompatible_dependency_by_protocol(self):
+        """
+        Should not resolve dependencies by annotations/protocol typing
+        """
+
+        class Test(Protocol):
+            @abstractmethod
+            def hello(self) -> Literal["World"]:
+                pass
+
+            @abstractmethod
+            def meow(self) -> Literal["🐱"]:
+                pass
+
+        class IncompatibleSubclass:
+            """
+            This class should be compatible with parent class by inheritance
+            """
+
+            def hello(self) -> Literal["World"]:
+                return "World"
+
+        injectable(IncompatibleSubclass)
+
+        with self.assertRaises(PyDitDependencyNotFoundException):
+            self.resolver.resolve_dependencies(Test)
+
+    def test_should_not_resolve_by_protocol_when_class_has_no_methods(self):
+        """
+        Should not resolve dependencies by annotations/protocol typing
+        """
+
+        class Test(Protocol):
+            @abstractmethod
+            def hello(self) -> Literal["World"]:
+                pass
+
+            @abstractmethod
+            def meow(self) -> Literal["🐱"]:
+                pass
+
+        class IncompatibleSubclass:
+            """
+            This class should be compatible with parent class by inheritance
+            """
+
+            pass
+
+        injectable(12, token="some_number")
+        injectable(IncompatibleSubclass)
+
+        with self.assertRaises(PyDitDependencyNotFoundException):
+            self.resolver.resolve_dependencies(Test)

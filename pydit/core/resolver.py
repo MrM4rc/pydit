@@ -83,7 +83,7 @@ class DependencyResolver:
         type_attributes = remove_private_and_protected_items(get_type_hints(type_), type_)
         dep_attributes = remove_private_and_protected_items(get_type_hints(dep_klass), dep_klass)
 
-        if type_attributes != dep_attributes:
+        if type_attributes != dep_attributes or len(type_attributes) == 0:
             return False
 
         checked = type_attributes.keys()
