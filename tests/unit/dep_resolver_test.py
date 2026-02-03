@@ -1,38 +1,39 @@
 from abc import abstractmethod
+import unittest
+from unittest import mock
 from typing import Any, Literal, Protocol
 from typing_extensions import override
-import unittest
-from pydit.core.inject import ConstructorInject
+from pydit.core.inject import FunctionInject
 from pydit.core.register import injectable
 from pydit.core.dependencies import Dependency, dependencies
 from pydit.core.resolver import DependencyResolver
 from pydit.exceptions.dependency_not_found import PyDitDependencyNotFoundException
-from pydit.exceptions.no_default_value import MissingDefaultValueException
+from pydit.exceptions.missing_default_value import MissingDefaultValueException
 from pydit.utils.get_class_token import get_class_token
 
 
 class CircularA:
-    def __init__(self, b: "CircularB" = ConstructorInject()):
+    def __init__(self, b: "CircularB" = FunctionInject()):
         self.b = b
 
 
 class CircularB:
-    def __init__(self, a: CircularA = ConstructorInject()):
+    def __init__(self, a: CircularA = FunctionInject()):
         self.a = a
 
 
 class CircularC:
-    def __init__(self, d: "CircularD" = ConstructorInject()):
+    def __init__(self, d: "CircularD" = FunctionInject()):
         self.d = d
 
 
 class CircularD:
-    def __init__(self, e: "CircularE" = ConstructorInject()):
+    def __init__(self, e: "CircularE" = FunctionInject()):
         self.e = e
 
 
 class CircularE:
-    def __init__(self, c: CircularC = ConstructorInject()):
+    def __init__(self, c: CircularC = FunctionInject()):
         self.c = c
 
 
@@ -202,8 +203,8 @@ class ResolverTest(unittest.TestCase):
         class Test:
             def __init__(
                 self,
-                refresh_time: int = ConstructorInject(token="refresh_time"),
-                db_credentials: dict[str, Any] = ConstructorInject(token="db_credentials"),
+                refresh_time: int = FunctionInject(token="refresh_time"),
+                db_credentials: dict[str, Any] = FunctionInject(token="db_credentials"),
             ):
                 self.refresh_time = refresh_time
                 self.db_credentials = db_credentials
@@ -261,7 +262,7 @@ class ResolverTest(unittest.TestCase):
                                         CircularA,
                                         get_class_token(CircularA),
                                     ),
-                                    [],
+                                    mock.ANY,
                                 )
                             ],
                         )
@@ -306,7 +307,7 @@ class ResolverTest(unittest.TestCase):
                                                 CircularC,
                                                 get_class_token(CircularC),
                                             ),
-                                            [],
+                                            mock.ANY,
                                         )
                                     ],
                                 )

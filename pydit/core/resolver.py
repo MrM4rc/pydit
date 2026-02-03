@@ -1,9 +1,9 @@
 import inspect
 from time import time
 from types import MappingProxyType, NoneType
-from typing import Any, Literal, get_type_hints
+from typing import Any, Callable, Literal, get_type_hints
 from pydit.exceptions.dependency_not_found import PyDitDependencyNotFoundException
-from pydit.exceptions.no_default_value import MissingDefaultValueException
+from pydit.exceptions.missing_default_value import MissingDefaultValueException
 from pydit.types.dependency import IDependency
 from pydit.core.dependencies import Dependency, EmptyDependency, dependencies, subclasses_map
 from pydit.utils.is_dunder import is_dunder
@@ -18,16 +18,18 @@ DependencyMapping = list[tuple[IDependency, "DependencyMapping"]]
 class DependencyResolver:
     def __init__(self):
         self.logger = get_logger("pydit.core.resolver")
-        self._solved_types: dict[type[Any], DependencyMapping] | None = None
+        self._solved_types: dict[type[Any] | Callable[..., Any], DependencyMapping] | None = None
 
     def resolve(self, type_: Any, token: str | None = None) -> DependencyMapping:
         start = time()
         dependency: IDependency | None = None
 
+        is_type_callable = callable(type_)
+
         if token:
             dependency = dependencies.get(token)
 
-        elif inspect.isclass(type_):
+        elif is_type_callable:
             dependency = self._resolve_by_type(type_)
 
         if dependency is None:
@@ -39,8 +41,10 @@ class DependencyResolver:
 
         dependency_mapping: DependencyMapping = []
 
-        if inspect.isclass(dependency.value):
-            dependency_mapping = self._get_class_dependencies(dependency)
+        is_dependency_callable = callable(dependency.value)
+
+        if is_dependency_callable:
+            dependency_mapping = self._get_callable_dependencies(dependency)
 
         response: DependencyMapping = [(dependency, dependency_mapping)]
 
@@ -48,7 +52,7 @@ class DependencyResolver:
 
     def _resolve_by_type(
         self,
-        type_: type[Any],
+        type_: type[Any] | Callable[..., Any],
         *,
         check_dunders: bool = False,
         dunders_to_check: Literal["all"] | list[str] = "all",
@@ -69,22 +73,23 @@ class DependencyResolver:
 
         return response
 
-    def _get_class_dependencies(
+    def _get_callable_dependencies(
         self,
         dependency: IDependency,
     ) -> DependencyMapping:
-        first_dependency = False
-
         dependency_mapping: DependencyMapping = []
+        initialized_solved_types = False
 
-        if inspect.isclass(dependency.value):
+        is_callable = callable(dependency.value)
+
+        if is_callable:
             if self._solved_types is None:
                 self._solved_types = {}
-                first_dependency = True
                 self._solved_types[dependency.value] = dependency_mapping
+                initialized_solved_types = True
 
-            if dependency.value in self._solved_types and not first_dependency:
-                return []
+            elif dependency.value in self._solved_types and not initialized_solved_types:
+                return self._solved_types[dependency.value]
 
             dependency_mapping.extend(self._resolve_signature(dependency.value))
             self._solved_types[dependency.value] = dependency_mapping
@@ -93,12 +98,13 @@ class DependencyResolver:
 
     def _check_compatibility_by_annotations(
         self,
-        type_: type[Any],
+        type_: type[Any] | Callable[..., Any],
         dependency: IDependency,
         check_dunders: bool = False,
         dunders_to_check: Literal["all"] | list[str] = "all",
     ) -> bool:
-        dep_klass = dependency.value if inspect.isclass(dependency.value) else dependency.value.__class__
+        is_callable = callable(dependency.value)
+        dep_klass = dependency.value if is_callable else dependency.value.__class__
         is_compatible = True
 
         type_properties = self._get_properties(type_, check_dunders, dunders_to_check)
@@ -146,7 +152,7 @@ class DependencyResolver:
 
     def _get_properties(
         self,
-        type_: type[Any],
+        type_: type[Any] | Callable[..., Any],
         check_dunders: bool,
         dunders_to_check: Literal["all"] | list[str] = "all",
     ) -> list[str]:
@@ -164,10 +170,12 @@ class DependencyResolver:
 
     def _resolve_signature(
         self,
-        type_: type[Any],
+        type_: type[Any] | Callable[..., Any],
     ) -> DependencyMapping:
 
-        parameters = self._get_class_parameters(type_)
+        parameters = self._get_callable_parameters(type_)
+        is_klass = inspect.isclass(type_)
+
         response: DependencyMapping = []
 
         for parameter in parameters.values():
@@ -175,7 +183,17 @@ class DependencyResolver:
                 continue
 
             if not self._is_dependency_parameter(parameter):
-                response.append((self._handle_common_parameter(parameter), []))
+                default_value = self._handle_common_parameter(parameter, is_klass=is_klass)
+
+                if default_value is None:
+                    continue
+
+                response.append(
+                    (
+                        default_value,
+                        [],
+                    )
+                )
                 continue
 
             response.extend(self._handle_dependency_parameter(parameter))
@@ -205,11 +223,17 @@ class DependencyResolver:
     def _handle_common_parameter(
         self,
         parameter: inspect.Parameter,
-    ) -> IDependency:
+        is_klass: bool,
+    ) -> IDependency | None:
         default_value = parameter.default
 
-        if default_value is inspect.Parameter.empty:
+        should_check_empty = is_klass
+
+        if default_value is inspect.Parameter.empty and should_check_empty:
             raise MissingDefaultValueException(parameter.name)
+        
+        if not is_klass and default_value is inspect.Parameter.empty:
+            return None
 
         dependency = Dependency(value=default_value, token=f"{parameter.name}")
 
@@ -222,7 +246,9 @@ class DependencyResolver:
             isinstance(default_value, Dependency) or isinstance(default_value, EmptyDependency)
         )
 
-    def _get_class_parameters(self, class_: type[Any]) -> MappingProxyType[str, inspect.Parameter]:
-        signature = inspect.signature(class_, eval_str=True)
+    def _get_callable_parameters(
+        self, type_: type[Any] | Callable[..., Any]
+    ) -> MappingProxyType[str, inspect.Parameter]:
+        signature = inspect.signature(type_, eval_str=True)
 
         return signature.parameters

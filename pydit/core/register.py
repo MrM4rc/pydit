@@ -26,7 +26,10 @@ def injectable(value: Any | type[Any], *, token: str | None = None) -> None:
     if not is_klass and type(value).__module__ == "builtins":
         return
 
-    if not is_klass:
+    if inspect.isfunction(value):
+        subclasses_map.setdefault(value, []).append(dependency)
+        return
+    elif not is_klass:
         klass = value.__class__
     else:
         klass = value

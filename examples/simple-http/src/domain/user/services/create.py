@@ -1,3 +1,4 @@
+from pydit import FunctionInject
 from src.adapters.repositories.interfaces.user import UserRepository
 from src.domain.user.models.create_user import CreateUserModel
 from src.domain.user.models.user import UserModel
@@ -16,3 +17,14 @@ class CreateUserService:
         )
 
         self.repository.save(data=user)
+
+
+def create_user_fn(data: CreateUserModel, repository: UserRepository = FunctionInject(UserRepository)):
+    user = UserModel(
+        id=data.id,
+        name=data.name,
+        last_name=data.last_name,
+        email=data.email,
+    )
+
+    repository.save(data=user)

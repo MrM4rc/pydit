@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "python-pydit"
-version = "0.2.1"
+version = "1.0.0"
 description = "A python dependency injection lib"
 authors = ["Marcelo Almeida (MrM4rc) <marcelorap345@gmail.com>"]
 license = "bsd3"
@@ -48,4 +48,45 @@ reportAny = false
 reportUninitializedInstanceVariable = false
 
 [[tool.poetry.packages]]
+
 include = "pydit"
+
+[project]
+
+name = "python-pydit"
+
+version = "1.0.0"
+
+description = "A python dependency injection lib"
+
+authors = [{name = "Marcelo Almeida (MrM4rc)", email = "marcelorap345@gmail.com"}]
+
+license = {text = "bsd3"}
+
+readme = "./docs/pypi/main.md"
+
+keywords = ["Dependency Injection", "Python", "DI", "SOLID"]
+
+classifiers = [
+
+  "Programming Language :: Python :: 3.10",
+
+  "Programming Language :: Python :: 3.11",
+
+  "Programming Language :: Python :: 3.12",
+
+  "Programming Language :: Python :: 3.13",
+
+  "Programming Language :: Python :: 3",
+
+  "License :: OSI Approved :: BSD License",
+
+  "Operating System :: OS Independent",
+
+]
+
+
+
+[project.urls]
+
+Homepage = "https://github.com/MrM4rc/pydit"

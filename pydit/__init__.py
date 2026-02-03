@@ -1,5 +1,5 @@
 from .core import PyDit
 from .core.register import injectable
-from .core.inject import ConstructorInject
+from .core.inject import FunctionInject
 
-__all__ = ["PyDit", "injectable", "ConstructorInject"]
+__all__ = ["PyDit", "injectable", "FunctionInject"]

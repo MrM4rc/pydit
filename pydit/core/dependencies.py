@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Callable
 from pydit.types.dependency import IDependency
 
 
@@ -15,4 +15,4 @@ class EmptyDependency:
 
 dependencies: dict[str, IDependency] = {}
 
-subclasses_map: dict[type[Any], list[IDependency]] = {}
+subclasses_map: dict[type[Any] | Callable[..., Any], list[IDependency]] = {}

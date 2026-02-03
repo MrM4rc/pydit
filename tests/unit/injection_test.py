@@ -1,42 +1,42 @@
 from abc import ABC, abstractmethod
-from typing import Any, Protocol, cast
+from typing import Any, Callable, Protocol, cast
 from typing_extensions import override
 import unittest
 from uuid import UUID, uuid4
 import pydit
 from pydit.core.dependencies import dependencies
-from pydit.core.inject import ConstructorInject
-from pydit.exceptions.no_default_value import MissingDefaultValueException
+from pydit.core.inject import FunctionInject
+from pydit.exceptions.missing_default_value import MissingDefaultValueException
 
 UserType = dict[str, Any]
 
 
 class CircularDependencyA:
-    def __init__(self, b: "CircularDependencyB" = ConstructorInject()):
+    def __init__(self, b: "CircularDependencyB" = FunctionInject()):
         self.b = b
         self.id = uuid4()
 
 
 class CircularDependencyB:
-    def __init__(self, a: CircularDependencyA = ConstructorInject()):
+    def __init__(self, a: CircularDependencyA = FunctionInject()):
         self.a = a
         self.id = uuid4()
 
 
 class CircularDependencyC:
-    def __init__(self, d: "CircularDependencyD" = ConstructorInject()):
+    def __init__(self, d: "CircularDependencyD" = FunctionInject()):
         self.d = d
         self.id = uuid4()
 
 
 class CircularDependencyD:
-    def __init__(self, e: "CircularDependencyE" = ConstructorInject()):
+    def __init__(self, e: "CircularDependencyE" = FunctionInject()):
         self.e = e
         self.id = uuid4()
 
 
 class CircularDependencyE:
-    def __init__(self, c: CircularDependencyC = ConstructorInject()):
+    def __init__(self, c: CircularDependencyC = FunctionInject()):
         self.c = c
         self.id = uuid4()
 
@@ -329,10 +329,10 @@ class InjectionTest(unittest.TestCase):
 
         class MyService:
             @self.pydit.inject(token="callable")
-            def some_prop(self) -> dict[str, Any]:
-                return {}
+            def some_prop(self) -> Callable[[], dict[str, Any]]:
+                return cast(Any, None)
 
-        self.assertEqual(MyService().some_prop, {"hello": "world"})
+        self.assertEqual(MyService().some_prop(), {"hello": "world"})
 
     def test_should_inject_singleton_instance(self):
         class MyService:
@@ -366,7 +366,7 @@ class InjectionTest(unittest.TestCase):
 
     def test_should_inject_value_by_constructor_inject(self):
         class MyService:
-            def __init__(self, config: dict[str, Any] = ConstructorInject(token="service_config")):
+            def __init__(self, config: dict[str, Any] = FunctionInject(token="service_config")):
                 self.config = config
 
         self.pydit.add_dependency({"key": "value"}, token="service_config")
@@ -382,7 +382,7 @@ class InjectionTest(unittest.TestCase):
                 return "Hello!"
 
         class MyService:
-            def __init__(self, dependency: MyDependency = ConstructorInject()):
+            def __init__(self, dependency: MyDependency = FunctionInject()):
                 self.dependency = dependency
 
         self.pydit.add_dependency(MyDependency)
@@ -399,7 +399,7 @@ class InjectionTest(unittest.TestCase):
 
         class MyService:
             def __init__(
-                self, test: int = 17, dep: DependencyKlass = ConstructorInject(), name: str = "default_name"
+                self, test: int = 17, dep: DependencyKlass = FunctionInject(), name: str = "default_name"
             ):
                 self.dep = dep
                 self.name = name
@@ -465,6 +465,59 @@ class InjectionTest(unittest.TestCase):
         self.assertIsInstance(service.service_a.b, CircularDependencyB)
         self.assertTrue(service.service_a.b.__is_proxy__())  # type: ignore
         self.assertEqual(service.service_a.id, service.service_a.b.a.id)
+
+    def test_should_inject_value_inside_function(self):
+        self.pydit.add_dependency(
+            {"host": "localhost", "port": 1234, "user": "user", "password": "teste"}, token="db_config"
+        )
+
+        class UrlParser(Protocol):
+            @abstractmethod
+            def parse(self, url: str) -> str:
+                pass
+
+        class RawUrlParser:
+            def parse(self, url: str) -> str:
+                return f"{url}-parsed"
+
+        self.pydit.add_dependency(RawUrlParser)
+
+        def test(db_config: dict[str, Any] = FunctionInject(token="db_config")):
+            url = f"{db_config['host']}:{db_config['port']}"
+
+            return url
+
+        def test_2(test_fn: Callable[[], str] = FunctionInject(test), parser: UrlParser = FunctionInject()):
+            url = test_fn()
+
+            return parser.parse(url)
+
+        self.pydit.add_dependency(test, token="test_fn")
+        self.pydit.add_dependency(test_2, token="test_2")
+
+        fn = self.pydit.get_value(type_=test, token="test_fn")
+        fn2 = self.pydit.get_value(test_2)
+
+        self.assertEqual(fn(), "localhost:1234")
+        self.assertEqual(fn2(), "localhost:1234-parsed")
+
+    def test_should_inject_value_inside_function_and_return_partial_function(self):
+        self.pydit.add_dependency(
+            {"host": "localhost", "port": 1234, "user": "user", "password": "teste"},
+            "db_config",
+        )
+
+        def test(max_retry: int, db_config: dict[str, Any] = FunctionInject(token="db_config")):
+            url = f"{db_config['host']}:{db_config['port']}-{max_retry}"
+
+            return url
+
+        self.pydit.add_dependency(test, token="test_fn")
+
+        fn = self.pydit.get_value(type_=test, token="test_fn")
+
+        self.assertEqual(fn(1), "localhost:1234-1")
+        self.assertEqual(fn(17), "localhost:1234-17")
 
     def _create_users(self, user_service: Any) -> list[dict[str, Any]]:
         users = [

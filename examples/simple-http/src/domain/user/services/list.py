@@ -1,4 +1,5 @@
 from typing import cast
+from pydit import FunctionInject
 from src.configs.di import pydit
 from src.adapters.repositories.interfaces.user import UserRepository
 from src.domain.user.models.user import UserModel
@@ -11,3 +12,8 @@ class ListUsersService:
 
     def execute(self) -> list[UserModel]:
         return self.user_repository.list_()
+
+
+
+def list_fn(user_repository: UserRepository = FunctionInject(UserRepository)):
+    return user_repository.list_()

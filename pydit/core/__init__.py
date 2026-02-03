@@ -1,3 +1,5 @@
+import functools
+import inspect
 from typing import Any, Callable, Protocol, TypeVar, cast, get_type_hints
 from typing_extensions import override
 from pydit.core.register import injectable
@@ -17,6 +19,9 @@ class GetInstanceFnType(Protocol[R]):
 
 class PyDit:
     __singleton_instances: dict[Any, Any] = {}
+
+    def __init__(self):
+        self._dep_resolver = DependencyResolver()
 
     def disable_logging(self):
         disable_all_loggers()
@@ -69,12 +74,11 @@ class PyDit:
 
             return self._value
 
-    def get_value(self, type_: type[R] | R, token: str | None = None, singleton: bool = False) -> R:
+    def get_value(self, type_: type[R] | R | None = None, token: str | None = None, singleton: bool = False) -> R:
         """
         This function will resolve __init__ signature in the future
         """
-        dep_resolver = DependencyResolver()
-        resolver_response = dep_resolver.resolve(type_, token)
+        resolver_response = self._dep_resolver.resolve(type_, token)
 
         dependency = resolver_response[0][0]
 
@@ -96,9 +100,52 @@ class PyDit:
         return response
 
     def _instantiate_type(
-        self, resolver_response: DependencyMapping, solved_klasses: dict[type[Any], Any] | None = None
+        self,
+        resolver_response: DependencyMapping,
+        solved_klasses: dict[type[Any] | Callable[..., Any], Any] | None = None,
     ) -> list[Any]:
         response: list[Any] = []
+
+        def get_real_values_by_proxies(*args: Any, **kwargs: Any):
+            new_args: Any = []
+            new_kwargs: Any = {}
+
+            for arg in args:
+                if isinstance(arg, DependencyProxy):
+                    new_args.append(arg._pydit_value)  # type: ignore
+                    continue
+                new_args.append(arg)
+
+            for key, value in kwargs.items():
+                if isinstance(value, DependencyProxy):
+                    new_kwargs[key] = value._pydit_value  # type: ignore
+                    continue
+                new_kwargs[key] = value
+
+            return new_args, new_kwargs
+
+        def fn_injection(*args: Any, **kwargs: Any):
+            def decorator(fn: Callable[..., Any]):
+
+                @functools.wraps(fn)
+                def wrapper(*other_args: Any, **other_kwargs: Any):
+                    new_args, new_kwargs = get_real_values_by_proxies(
+                        *[*other_args, *args], **{**other_kwargs, **kwargs}
+                    )
+
+                    return fn(*new_args, **new_kwargs)
+
+                @functools.wraps(fn)
+                async def async_wrapper(*other_args: Any, **other_kwargs: Any):
+                    new_args, new_kwargs = get_real_values_by_proxies(
+                        *[*other_args, *args], *{**other_kwargs, **kwargs}
+                    )
+
+                    return await fn(*new_args, **new_kwargs)
+
+                return wrapper if not inspect.iscoroutinefunction(fn) else async_wrapper
+
+            return decorator
 
         if solved_klasses is None:
             solved_klasses = {}
@@ -119,7 +166,11 @@ class PyDit:
             for _ in parameters:
                 proxies.append(DependencyProxy(None))
 
-            solved = dependency.value(*proxies)
+            if inspect.isclass(dependency.value):
+                solved = dependency.value(*proxies)
+            else:
+                solved = fn_injection(*proxies)(dependency.value)
+
             response.append(solved)
             solved_klasses[dependency.value] = solved
 
