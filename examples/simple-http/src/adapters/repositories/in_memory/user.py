@@ -1,5 +1,5 @@
 from time import sleep
-from typing import TypedDict
+from typing import Callable, TypedDict, cast
 from typing_extensions import override
 from uuid import UUID
 from src.configs.di import pydit
@@ -17,11 +17,11 @@ class MemoryUserRepository(UserRepository):
     __users: dict[UUID, UserModel] = {}
 
     def __init__(self):
-        self.__delay = self.config.get("delay", 0.2)
+        self.__delay = self.config().get("delay", 0.2)
 
     @pydit.inject(token=MEMORY_REPOSITORY_CONFIG_TOKEN)
-    def config(self) -> ConfigType:  # TODO: supress return type error
-        pass
+    def config(self) -> Callable[[], ConfigType]:  # TODO: supress return type error
+        return cast(Callable[[], ConfigType], None)
 
     @override
     def get_by_id(self, *, id_: UUID) -> UserModel:

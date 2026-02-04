@@ -1,7 +1,7 @@
 from typing import Any, Protocol
 
 
-class Dependency(Protocol):
+class IDependency(Protocol):
     value: Any
     """
     Description:

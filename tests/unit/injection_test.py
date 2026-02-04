@@ -1,12 +1,44 @@
 from abc import ABC, abstractmethod
-from typing import Any, Protocol, cast
+from typing import Any, Callable, Protocol, cast
 from typing_extensions import override
 import unittest
 from uuid import UUID, uuid4
 import pydit
 from pydit.core.dependencies import dependencies
+from pydit.core.inject import FunctionInject
+from pydit.exceptions.missing_default_value import MissingDefaultValueException
 
 UserType = dict[str, Any]
+
+
+class CircularDependencyA:
+    def __init__(self, b: "CircularDependencyB" = FunctionInject()):
+        self.b = b
+        self.id = uuid4()
+
+
+class CircularDependencyB:
+    def __init__(self, a: CircularDependencyA = FunctionInject()):
+        self.a = a
+        self.id = uuid4()
+
+
+class CircularDependencyC:
+    def __init__(self, d: "CircularDependencyD" = FunctionInject()):
+        self.d = d
+        self.id = uuid4()
+
+
+class CircularDependencyD:
+    def __init__(self, e: "CircularDependencyE" = FunctionInject()):
+        self.e = e
+        self.id = uuid4()
+
+
+class CircularDependencyE:
+    def __init__(self, c: CircularDependencyC = FunctionInject()):
+        self.c = c
+        self.id = uuid4()
 
 
 class InjectionTest(unittest.TestCase):
@@ -112,27 +144,21 @@ class InjectionTest(unittest.TestCase):
                 return self.repository.list_()
 
         service = UserService()
-        user_1 = uuid4()
-        user_2 = uuid4()
-        user_3 = uuid4()
 
-        service.create({"id": user_1, "name": "MrM4rc"})
-        service.create({"id": user_2, "name": "Foo"})
-        service.create({"id": user_3, "name": "Bar"})
+        self._create_users(service.repository)
 
-        users = service.list_()
+        self._total_users_is_equal_to(service.repository, 3)
 
-        self.assertEqual(len(users), 3)
-        self.assertEqual(
-            users,
+        self._users_equal_to(
+            service.repository,
             [
-                {"id": user_1, "name": "MrM4rc"},
-                {"id": user_2, "name": "Foo"},
-                {"id": user_3, "name": "Bar"},
+                {"id": "uuid1", "name": "MrM4rc"},
+                {"id": "uuid2", "name": "Foo"},
+                {"id": "uuid3", "name": "Bar"},
             ],
         )
 
-        self.assertEqual(service.get_by_id(user_1), {"id": user_1, "name": "MrM4rc"})
+        self._user_equal_to(service.repository, "uuid1", {"id": "uuid1", "name": "MrM4rc"})
 
     def test_should_inject_by_protocol_with_inheritance(self):
 
@@ -203,27 +229,19 @@ class InjectionTest(unittest.TestCase):
                 return self.repository.list_()
 
         service = UserService()
-        user_1 = uuid4()
-        user_2 = uuid4()
-        user_3 = uuid4()
 
-        service.create({"id": user_1, "name": "MrM4rc"})
-        service.create({"id": user_2, "name": "Foo"})
-        service.create({"id": user_3, "name": "Bar"})
-
-        users = service.list_()
-
-        self.assertEqual(len(users), 3)
-        self.assertEqual(
-            users,
+        self._create_users(service)
+        self._total_users_is_equal_to(service.repository, 3)
+        self._users_equal_to(
+            service,
             [
-                {"id": user_1, "name": "MrM4rc"},
-                {"id": user_2, "name": "Foo"},
-                {"id": user_3, "name": "Bar"},
+                {"id": "uuid1", "name": "MrM4rc"},
+                {"id": "uuid2", "name": "Foo"},
+                {"id": "uuid3", "name": "Bar"},
             ],
         )
 
-        self.assertEqual(service.get_by_id(user_1), {"id": user_1, "name": "MrM4rc"})
+        self._user_equal_to(service, "uuid1", {"id": "uuid1", "name": "MrM4rc"})
 
     def test_should_inject_by_protocol_without_inheritance(self):
 
@@ -291,37 +309,30 @@ class InjectionTest(unittest.TestCase):
                 return self.repository.list_()
 
         service = UserService()
-        user_1 = uuid4()
-        user_2 = uuid4()
-        user_3 = uuid4()
 
-        service.create({"id": user_1, "name": "MrM4rc"})
-        service.create({"id": user_2, "name": "Foo"})
-        service.create({"id": user_3, "name": "Bar"})
+        self._create_users(service)
 
-        users = service.list_()
-
-        self.assertEqual(len(users), 3)
-        self.assertEqual(
-            users,
+        self._total_users_is_equal_to(service.repository, 3)
+        self._users_equal_to(
+            service,
             [
-                {"id": user_1, "name": "MrM4rc"},
-                {"id": user_2, "name": "Foo"},
-                {"id": user_3, "name": "Bar"},
+                {"id": "uuid1", "name": "MrM4rc"},
+                {"id": "uuid2", "name": "Foo"},
+                {"id": "uuid3", "name": "Bar"},
             ],
         )
 
-        self.assertEqual(service.get_by_id(user_1), {"id": user_1, "name": "MrM4rc"})
+        self._user_equal_to(service, "uuid1", {"id": "uuid1", "name": "MrM4rc"})
 
     def test_should_inject_a_callable_value(self):
         self.pydit.add_dependency(lambda: {"hello": "world"}, "callable")
 
         class MyService:
             @self.pydit.inject(token="callable")
-            def some_prop(self) -> dict[str, Any]:
-                return {}
+            def some_prop(self) -> Callable[[], dict[str, Any]]:
+                return cast(Any, None)
 
-        self.assertEqual(MyService().some_prop, {"hello": "world"})
+        self.assertEqual(MyService().some_prop(), {"hello": "world"})
 
     def test_should_inject_singleton_instance(self):
         class MyService:
@@ -352,3 +363,194 @@ class InjectionTest(unittest.TestCase):
         self.assertNotEqual(consumer.service_a.id, consumer.service_c.id)
 
         self.assertIsNot(consumer.service_a, consumer.service_c)
+
+    def test_should_inject_value_by_constructor_inject(self):
+        class MyService:
+            def __init__(self, config: dict[str, Any] = FunctionInject(token="service_config")):
+                self.config = config
+
+        self.pydit.add_dependency({"key": "value"}, token="service_config")
+        self.pydit.add_dependency(MyService)
+
+        service = self.pydit.get_value(MyService)
+
+        self.assertEqual(service.config, {"key": "value"})
+
+    def test_should_inject_value_by_constructor_inject_with_no_token_or_type(self):
+        class MyDependency:
+            def say_hello(self) -> str:
+                return "Hello!"
+
+        class MyService:
+            def __init__(self, dependency: MyDependency = FunctionInject()):
+                self.dependency = dependency
+
+        self.pydit.add_dependency(MyDependency)
+        self.pydit.add_dependency(MyService)
+
+        service = self.pydit.get_value(MyService)
+
+        self.assertEqual(service.dependency.say_hello(), "Hello!")
+
+    def test_should_inject_value_by_constructor_and_handle_default_value(self):
+        class DependencyKlass:
+            def say_hello(self) -> str:
+                return "Hello!"
+
+        class MyService:
+            def __init__(
+                self, test: int = 17, dep: DependencyKlass = FunctionInject(), name: str = "default_name"
+            ):
+                self.dep = dep
+                self.name = name
+                self.test = test
+
+        self.pydit.add_dependency(DependencyKlass)
+        self.pydit.add_dependency(MyService)
+
+        service = self.pydit.get_value(MyService)
+
+        self.assertEqual(service.dep.say_hello(), "Hello!")
+        self.assertEqual(service.name, "default_name")
+        self.assertEqual(service.test, 17)
+
+    def test_should_throw_no_default_value_exception_when_no_default_value_is_provided(self):
+        class MyService:
+            def __init__(self, test: int, name: str = "default_name"):
+                self.name = name
+                self.test = test
+
+        self.pydit.add_dependency(MyService)
+
+        with self.assertRaises(MissingDefaultValueException):
+            self.pydit.get_value(MyService)
+
+    def test_should_resolve_circular_dependencies_with_one_level(self):
+        self.pydit.add_dependency(CircularDependencyA)
+        self.pydit.add_dependency(CircularDependencyB)
+
+        a_instance = self.pydit.get_value(CircularDependencyA)
+
+        self.assertIsInstance(a_instance, CircularDependencyA)
+        self.assertIsInstance(a_instance.b, CircularDependencyB)
+        self.assertTrue(a_instance.b.__is_proxy__())  # type: ignore
+        self.assertEqual(a_instance.id, a_instance.b.a.id)
+
+    def test_should_resolve_circular_dependencies_with_multiple_levels(self):
+        self.pydit.add_dependency(CircularDependencyC)
+        self.pydit.add_dependency(CircularDependencyD)
+        self.pydit.add_dependency(CircularDependencyE)
+
+        c_instance = self.pydit.get_value(CircularDependencyC)
+
+        self.assertIsInstance(c_instance, CircularDependencyC)
+        self.assertIsInstance(c_instance.d, CircularDependencyD)
+        self.assertTrue(c_instance.d.__is_proxy__())  # type: ignore
+        self.assertIsInstance(c_instance.d.e, CircularDependencyE)
+        self.assertTrue(c_instance.d.e.__is_proxy__())  # type: ignore
+        self.assertEqual(c_instance.id, c_instance.d.e.c.id)
+
+    def test_should_resolve_circular_dependencies_using_inject_decorator(self):
+        class ServiceA:
+            @self.pydit.inject()
+            def service_a(self) -> "CircularDependencyA":
+                return cast(Any, None)
+
+        self.pydit.add_dependency(CircularDependencyA)
+        self.pydit.add_dependency(CircularDependencyB)
+
+        service = ServiceA()
+
+        self.assertIsInstance(service.service_a, CircularDependencyA)
+        self.assertIsInstance(service.service_a.b, CircularDependencyB)
+        self.assertTrue(service.service_a.b.__is_proxy__())  # type: ignore
+        self.assertEqual(service.service_a.id, service.service_a.b.a.id)
+
+    def test_should_inject_value_inside_function(self):
+        self.pydit.add_dependency(
+            {"host": "localhost", "port": 1234, "user": "user", "password": "teste"}, token="db_config"
+        )
+
+        class UrlParser(Protocol):
+            @abstractmethod
+            def parse(self, url: str) -> str:
+                pass
+
+        class RawUrlParser:
+            def parse(self, url: str) -> str:
+                return f"{url}-parsed"
+
+        self.pydit.add_dependency(RawUrlParser)
+
+        def test(db_config: dict[str, Any] = FunctionInject(token="db_config")):
+            url = f"{db_config['host']}:{db_config['port']}"
+
+            return url
+
+        def test_2(test_fn: Callable[[], str] = FunctionInject(test), parser: UrlParser = FunctionInject()):
+            url = test_fn()
+
+            return parser.parse(url)
+
+        self.pydit.add_dependency(test, token="test_fn")
+        self.pydit.add_dependency(test_2, token="test_2")
+
+        fn = self.pydit.get_value(type_=test, token="test_fn")
+        fn2 = self.pydit.get_value(test_2)
+
+        self.assertEqual(fn(), "localhost:1234")
+        self.assertEqual(fn2(), "localhost:1234-parsed")
+
+    def test_should_inject_value_inside_function_and_return_partial_function(self):
+        self.pydit.add_dependency(
+            {"host": "localhost", "port": 1234, "user": "user", "password": "teste"},
+            "db_config",
+        )
+
+        def test(max_retry: int, db_config: dict[str, Any] = FunctionInject(token="db_config")):
+            url = f"{db_config['host']}:{db_config['port']}-{max_retry}"
+
+            return url
+
+        self.pydit.add_dependency(test, token="test_fn")
+
+        fn = self.pydit.get_value(type_=test, token="test_fn")
+
+        self.assertEqual(fn(1), "localhost:1234-1")
+        self.assertEqual(fn(17), "localhost:1234-17")
+
+    def _create_users(self, user_service: Any) -> list[dict[str, Any]]:
+        users = [
+            {
+                "id": "uuid1",
+                "name": "MrM4rc",
+            },
+            {
+                "id": "uuid2",
+                "name": "Foo",
+            },
+            {
+                "id": "uuid3",
+                "name": "Bar",
+            },
+        ]
+
+        for user in users:
+            user_service.create(user)
+
+        return users
+
+    def _total_users_is_equal_to(self, user_service: Any, expected_total: int) -> None:
+        users = user_service.list_()
+
+        self.assertEqual(len(users), expected_total)
+
+    def _users_equal_to(self, user_service: Any, expected_users: list[dict[str, Any]]) -> None:
+        users = user_service.list_()
+
+        self.assertEqual(users, expected_users)
+
+    def _user_equal_to(self, user_service: Any, user_id: Any, expected_user: dict[str, Any]) -> None:
+        user = user_service.get_by_id(user_id)
+
+        self.assertEqual(user, expected_user)

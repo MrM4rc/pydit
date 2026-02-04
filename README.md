@@ -81,7 +81,11 @@ from app.config.di import setup_dependencies()
 setup_dependencies()
 ```
 
-### Injecting a dependency insinde a class
+### Injecting dependencies
+
+#### Inject by property
+
+Pydit supports python's @property decorator.
 
 > app/domain/user/services/create.py
 
@@ -108,6 +112,72 @@ class CreateUserService:
 ```
 
 How you can see, we're depending on the intarface `IUserRepository`, not the real `SqlalchemyUserRepository` implementation.
+
+#### Inject dependencies by constuctor
+
+> app/domain/user/services/create.py
+
+```python
+from pydit import FunctionInject
+from app.adapters.repositories.interfaces.user_repositgory import IUserRepository
+
+class CreateUserService:
+  def __init__(
+    self,
+    user_repository: IUserRepository = FunctionInject(),
+    other_property: str = FunctionInject(token="test")
+  ):
+    self.user_repository = user_repository
+
+  def execute(self, data):
+    self.user_repository.create(data)
+
+    # Prints HELLO WORLD
+    print(other_property)
+```
+
+#### Inject dependencies by function
+
+PyDIT needs that each parameter of class/function have default value to be resolved
+
+> app/domain/user/services/create.py
+
+```python
+from typing import Any
+from pydit import FunctionInject
+from app.adapters.repositories.interfaces.user_repositgory import IUserRepository
+
+def create_user(user_data: dict[str, Any], repository: IUserRepository = FunctionInject()):
+  repository.create(user_data)
+```
+
+> app/config/dependencies.py
+
+```python
+from app.configs.di import pydit
+from app.domain.user.services.create import create_user
+
+def setup_dependencies():
+  pydit.add_dependency(create_user, "create_user")
+```
+
+> app/routers/v1/user.py
+
+```python
+from fastapi import APIRouter
+from app.configs.di import pydit
+from app.domain.user.dto.create import CreateUserDTO
+
+
+router = APIRouter(prefix="/users", tags=["Users"])
+
+@router.post("")
+def create(data: CreateUserDTO):
+  create_service = pydit.get_value(token="create_user")
+  create_service(data.dict())
+
+  return "OK"
+```
 
 ### Singleton
 
@@ -142,4 +212,5 @@ class CreateUserService:
 - [x] Inject values via token
 - [x] Resolves function dependencies, calling and injecting the call result
 - [x] Singleton support
-- [ ] Inject values in function calls or class constructor `__init__` based on the arguments' signatures
+- [x] Inject values in function calls or class constructor `__init__` based on the arguments' signatures
+- [ ] Add support for kwargs when inject values in functions
