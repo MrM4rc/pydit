@@ -115,6 +115,8 @@ How you can see, we're depending on the intarface `IUserRepository`, not the rea
 
 #### Inject dependencies by constuctor
 
+PyDIT needs that each parameter of class/function have default value to be resolved
+
 > app/domain/user/services/create.py
 
 ```python
@@ -138,7 +140,7 @@ class CreateUserService:
 
 #### Inject dependencies by function
 
-PyDIT needs that each parameter of class/function have default value to be resolved
+PyDIT can handle user defined functions too.
 
 > app/domain/user/services/create.py
 

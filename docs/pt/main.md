@@ -76,7 +76,11 @@ from app.config.di import setup_dependencies()
 setup_dependencies()
 ```
 
-### Injetando dependencias em uma classe
+## Injectando Dependências
+
+### Injetando usando python e seu @property decorator
+
+PyDIT suporta injeção de dependência similar ao funcionamento do @property do python.
 
 > app/domain/user/services/create.py
 
@@ -104,6 +108,72 @@ class CreateUserService:
 
 Como podemos ver no exemplo, a classe CreateUserService desconhece a existência da classe `SqlalchemyUserRepository`,<br />
 dependendo somente da intarface `IUserRepository`
+
+### Injetando dependências por construtor
+
+> app/domain/user/services/create.py
+
+```python
+from pydit import FunctionInject
+from app.adapters.repositories.interfaces.user_repositgory import IUserRepository
+
+class CreateUserService:
+  def __init__(
+    self,
+    user_repository: IUserRepository = FunctionInject(),
+    other_property: str = FunctionInject(token="test")
+  ):
+    self.user_repository = user_repository
+
+  def execute(self, data):
+    self.user_repository.create(data)
+
+    # Prints HELLO WORLD
+    print(other_property)
+```
+
+#### Inject dependencies by function
+
+PyDIT consegue resolver dependências de funções definidas pelo usuário.
+
+> app/domain/user/services/create.py
+
+```python
+from typing import Any
+from pydit import FunctionInject
+from app.adapters.repositories.interfaces.user_repositgory import IUserRepository
+
+def create_user(user_data: dict[str, Any], repository: IUserRepository = FunctionInject()):
+  repository.create(user_data)
+```
+
+> app/config/dependencies.py
+
+```python
+from app.configs.di import pydit
+from app.domain.user.services.create import create_user
+
+def setup_dependencies():
+  pydit.add_dependency(create_user, "create_user")
+```
+
+> app/routers/v1/user.py
+
+```python
+from fastapi import APIRouter
+from app.configs.di import pydit
+from app.domain.user.dto.create import CreateUserDTO
+
+
+router = APIRouter(prefix="/users", tags=["Users"])
+
+@router.post("")
+def create(data: CreateUserDTO):
+  create_service = pydit.get_value(token="create_user")
+  create_service(data.dict())
+
+  return "OK"
+```
 
 ### Singleton
 
@@ -138,4 +208,5 @@ class CreateUserService:
 - [x] Injetar valores via tokens
 - [x] Resolve dependencias do tipo função, chamando a dependência e injetando seu resultado
 - [x] Suporte ao singleton
-- [ ] Injetar valores em funções ou construtores de classe `__init__` baseado na assinatura de argumentos
+- [x] Injetar valores em funções ou construtores de classe `__init__` baseado na assinatura de argumentos
+- [ ] Adicionar suporte à kwargs quando injetando valores em funções
