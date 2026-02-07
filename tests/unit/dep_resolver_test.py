@@ -38,6 +38,10 @@ class CircularE:
 
 
 class ResolverTest(unittest.TestCase):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.maxDiff = None
+
     @override
     def setUp(self):
         dependencies.clear()
@@ -56,9 +60,17 @@ class ResolverTest(unittest.TestCase):
             [
                 (
                     Dependency(
-                        {"host": "localhost", "port": 1234, "user": "user", "password": "teste"}, "db_credentials"
+                        {
+                            "host": "localhost",
+                            "port": 1234,
+                            "user": "user",
+                            "password": "teste",
+                        },
+                        "db_credentials",
+                        singleton=False,
                     ),
                     [],
+                    False,
                 )
             ],
         )
@@ -83,7 +95,16 @@ class ResolverTest(unittest.TestCase):
 
         dep = self.resolver.resolve(Test)
 
-        self.assertEqual(dep, [(Dependency(Subclass, get_class_token(Subclass)), [])])
+        self.assertEqual(
+            dep,
+            [
+                (
+                    Dependency(Subclass, get_class_token(Subclass), singleton=False),
+                    [],
+                    False,
+                )
+            ],
+        )
 
     def test_should_resolve_dependency_by_protocol(self):
         """
@@ -114,7 +135,16 @@ class ResolverTest(unittest.TestCase):
 
         dep = self.resolver.resolve(Test)
 
-        self.assertEqual(dep, [(Dependency(Subclass, get_class_token(Subclass)), [])])
+        self.assertEqual(
+            dep,
+            [
+                (
+                    Dependency(Subclass, get_class_token(Subclass), singleton=False),
+                    [],
+                    False,
+                )
+            ],
+        )
 
     def test_should_not_resolve_incompatible_dependency_by_protocol(self):
         """
@@ -197,7 +227,8 @@ class ResolverTest(unittest.TestCase):
     def test_should_resolve_dependency_with_constructor_params(self):
         injectable(30, token="refresh_time")
         injectable(
-            {"host": "localhost", "port": 1234, "user": "user", "password": "teste"}, token="db_credentials"
+            {"host": "localhost", "port": 1234, "user": "user", "password": "teste"},
+            token="db_credentials",
         )
 
         class Test:
@@ -220,17 +251,26 @@ class ResolverTest(unittest.TestCase):
                     Dependency(
                         Test,
                         get_class_token(Test),
+                        singleton=False,
                     ),
                     [
-                        (Dependency(30, "refresh_time"), []),
+                        (Dependency(30, "refresh_time", singleton=False), [], False),
                         (
                             Dependency(
-                                {"host": "localhost", "port": 1234, "user": "user", "password": "teste"},
+                                {
+                                    "host": "localhost",
+                                    "port": 1234,
+                                    "user": "user",
+                                    "password": "teste",
+                                },
                                 "db_credentials",
+                                singleton=False,
                             ),
                             [],
+                            False,
                         ),
                     ],
+                    False,
                 )
             ],
         )
@@ -249,24 +289,30 @@ class ResolverTest(unittest.TestCase):
                     Dependency(
                         CircularA,
                         get_class_token(CircularA),
+                        singleton=False,
                     ),
                     [
                         (
                             Dependency(
                                 CircularB,
                                 get_class_token(CircularB),
+                                singleton=False,
                             ),
                             [
                                 (
                                     Dependency(
                                         CircularA,
                                         get_class_token(CircularA),
+                                        singleton=False,
                                     ),
                                     mock.ANY,
+                                    False,
                                 )
                             ],
+                            False,
                         )
                     ],
+                    False,
                 )
             ],
         )
@@ -288,32 +334,40 @@ class ResolverTest(unittest.TestCase):
                     Dependency(
                         CircularC,
                         get_class_token(CircularC),
+                        singleton=False,
                     ),
                     [
                         (
                             Dependency(
                                 CircularD,
                                 get_class_token(CircularD),
+                                singleton=False,
                             ),
                             [
                                 (
                                     Dependency(
                                         CircularE,
                                         get_class_token(CircularE),
+                                        singleton=False,
                                     ),
                                     [
                                         (
                                             Dependency(
                                                 CircularC,
                                                 get_class_token(CircularC),
+                                                singleton=False,
                                             ),
                                             mock.ANY,
+                                            False,
                                         )
                                     ],
+                                    False,
                                 )
                             ],
+                            False,
                         )
                     ],
+                    False,
                 )
             ],
         )

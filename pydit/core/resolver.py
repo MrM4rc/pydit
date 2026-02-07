@@ -1,3 +1,4 @@
+from typing import cast
 import inspect
 from time import time
 from types import MappingProxyType, NoneType
@@ -5,22 +6,36 @@ from typing import Any, Callable, Literal, get_type_hints
 from pydit.exceptions.dependency_not_found import PyDitDependencyNotFoundException
 from pydit.exceptions.missing_default_value import MissingDefaultValueException
 from pydit.types.dependency import IDependency
-from pydit.core.dependencies import Dependency, EmptyDependency, dependencies, subclasses_map
+from pydit.core.dependencies import (
+    Dependency,
+    EmptyDependency,
+    dependencies,
+    subclasses_map,
+)
 from pydit.utils.is_dunder import is_dunder
 from pydit.utils.logging import get_logger
 from pydit.utils.remove_dunders import remove_dunders
 from pydit.utils.remove_private_protected import remove_private_and_protected_items
 
 
-DependencyMapping = list[tuple[IDependency, "DependencyMapping"]]
+DependencyMapping = list[tuple[IDependency, "DependencyMapping", bool]]
 
 
 class DependencyResolver:
     def __init__(self):
         self.logger = get_logger("pydit.core.resolver")
-        self._solved_types: dict[type[Any] | Callable[..., Any], DependencyMapping] | None = None
+        self._solved_types: (
+            dict[type[Any] | Callable[..., Any], DependencyMapping] | None
+        ) = None
 
-    def resolve(self, type_: Any, token: str | None = None) -> DependencyMapping:
+    def resolve(
+        self, type_: Any, token: str | None = None, singleton: bool | None = None
+    ) -> DependencyMapping:
+        """
+        Return:
+            DependencyMapping - List of tuples with dependency, its dependencies and if it is a singleton
+        """
+
         start = time()
         dependency: IDependency | None = None
 
@@ -36,7 +51,8 @@ class DependencyResolver:
             raise PyDitDependencyNotFoundException
 
         self.logger.debug(
-            f"Resolved dependency '{dependency.token}' " f"in {round((time() - start) * 1000, 2)} ms"
+            f"Resolved dependency '{dependency.token}' "
+            f"in {round((time() - start) * 1000, 2)} ms"
         )
 
         dependency_mapping: DependencyMapping = []
@@ -46,7 +62,15 @@ class DependencyResolver:
         if is_dependency_callable:
             dependency_mapping = self._get_callable_dependencies(dependency)
 
-        response: DependencyMapping = [(dependency, dependency_mapping)]
+        response: DependencyMapping = [
+            (
+                dependency,
+                dependency_mapping,
+                singleton
+                if singleton is not None
+                else self._extract_singleton_from_meta(dependency),
+            )
+        ]
 
         return response
 
@@ -61,14 +85,20 @@ class DependencyResolver:
 
         if type_ in subclasses_map:
             response = subclasses_map[type_][0]
-            self.logger.debug(f"Resolved dependency by subclass map {type_}: {response}")
+            self.logger.debug(
+                f"Resolved dependency by subclass map {type_}: {response}"
+            )
 
             return response
 
         for dependency in dependencies.values():
-            if self._check_compatibility_by_annotations(type_, dependency, check_dunders, dunders_to_check):
+            if self._check_compatibility_by_annotations(
+                type_, dependency, check_dunders, dunders_to_check
+            ):
                 response = dependency
-                self.logger.debug(f"Resolved dependency by annotations compatibility {type_}: {response}")
+                self.logger.debug(
+                    f"Resolved dependency by annotations compatibility {type_}: {response}"
+                )
                 break
 
         return response
@@ -88,13 +118,23 @@ class DependencyResolver:
                 self._solved_types[dependency.value] = dependency_mapping
                 initialized_solved_types = True
 
-            elif dependency.value in self._solved_types and not initialized_solved_types:
+            elif self._should_return_from_solved_types(
+                dependency, self._solved_types, initialized_solved_types
+            ):
                 return self._solved_types[dependency.value]
 
             dependency_mapping.extend(self._resolve_signature(dependency.value))
             self._solved_types[dependency.value] = dependency_mapping
 
         return dependency_mapping
+
+    def _should_return_from_solved_types(
+        self,
+        dependency: IDependency,
+        solved_types: dict[type[Any] | Callable[..., Any], DependencyMapping],
+        initialized_solved_types: bool,
+    ) -> bool:
+        return dependency.value in solved_types and not initialized_solved_types
 
     def _check_compatibility_by_annotations(
         self,
@@ -109,15 +149,23 @@ class DependencyResolver:
 
         type_properties = self._get_properties(type_, check_dunders, dunders_to_check)
 
-        type_attributes = remove_private_and_protected_items(get_type_hints(type_), type_)
-        dep_attributes = remove_private_and_protected_items(get_type_hints(dep_klass), dep_klass)
+        type_attributes = remove_private_and_protected_items(
+            get_type_hints(type_), type_
+        )
+        dep_attributes = remove_private_and_protected_items(
+            get_type_hints(dep_klass), dep_klass
+        )
 
         if type_attributes != dep_attributes:
             return False
 
         verified = type_attributes.keys()
 
-        type_properties = [property_name for property_name in type_properties if property_name not in verified]
+        type_properties = [
+            property_name
+            for property_name in type_properties
+            if property_name not in verified
+        ]
 
         type_properties = remove_private_and_protected_items(type_properties, type_)
 
@@ -163,7 +211,9 @@ class DependencyResolver:
         else:
             if dunders_to_check != "all":
                 type_properties = [
-                    prop for prop in type_properties if not is_dunder(prop) or prop in dunders_to_check
+                    prop
+                    for prop in type_properties
+                    if not is_dunder(prop) or prop in dunders_to_check
                 ]
 
         return type_properties
@@ -183,7 +233,9 @@ class DependencyResolver:
                 continue
 
             if not self._is_dependency_parameter(parameter):
-                default_value = self._handle_common_parameter(parameter, is_klass=is_klass)
+                default_value = self._handle_common_parameter(
+                    parameter, is_klass=is_klass
+                )
 
                 if default_value is None:
                     continue
@@ -192,6 +244,7 @@ class DependencyResolver:
                     (
                         default_value,
                         [],
+                        False,
                     )
                 )
                 continue
@@ -214,10 +267,13 @@ class DependencyResolver:
         elif isinstance(constructor_dependency, Dependency):
             annotation_type = constructor_dependency.value
             token = constructor_dependency.token
+        else:
+            raise PyDitDependencyNotFoundException()
 
         return self.resolve(
             type_=annotation_type,
             token=token,
+            singleton=self._extract_singleton_from_meta(constructor_dependency),
         )
 
     def _handle_common_parameter(
@@ -231,7 +287,7 @@ class DependencyResolver:
 
         if default_value is inspect.Parameter.empty and should_check_empty:
             raise MissingDefaultValueException(parameter.name)
-        
+
         if not is_klass and default_value is inspect.Parameter.empty:
             return None
 
@@ -243,7 +299,8 @@ class DependencyResolver:
         default_value = parameter.default
 
         return default_value is not inspect.Parameter.empty and (
-            isinstance(default_value, Dependency) or isinstance(default_value, EmptyDependency)
+            isinstance(default_value, Dependency)
+            or isinstance(default_value, EmptyDependency)
         )
 
     def _get_callable_parameters(
@@ -252,3 +309,9 @@ class DependencyResolver:
         signature = inspect.signature(type_, eval_str=True)
 
         return signature.parameters
+
+    def _extract_singleton_from_meta(self, dependency: IDependency) -> bool:
+        if not hasattr(dependency, "__pydit_meta__"):
+            return False
+
+        return cast(dict[str, Any], dependency.__pydit_meta__).get("singleton", False)
