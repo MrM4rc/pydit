@@ -1,3 +1,4 @@
+from typing import overload
 import functools
 import inspect
 from typing import Any, Callable, Protocol, TypeVar, cast, get_type_hints
@@ -14,7 +15,9 @@ R = TypeVar("R")
 
 
 class GetInstanceFnType(Protocol[R]):
-    def __call__(self, type_: type[R] | R, token: str | None = None, singleton: bool = False) -> R: ...
+    def __call__(
+        self, type_: type[R] | Callable, token: str | None = None, singleton: bool = False
+    ) -> R: ...
 
 
 class PyDit:
@@ -41,7 +44,7 @@ class PyDit:
         return decorator
 
     class DependencyProperty(DependencyPropertyType[R]):
-        _inject_type: R
+        _inject_type: type[R] | Callable
         _token: str | None = None
         _get_value_fn: GetInstanceFnType[R]
         _value: Any = None
@@ -53,11 +56,11 @@ class PyDit:
             func: Callable[..., R],
             token: str | None = None,
             get_value_fn: GetInstanceFnType[R],
-            singleton: bool = False
+            singleton: bool = False,
         ):
             hints = get_type_hints(func)
 
-            self._inject_type = cast(R, hints.get("return"))
+            self._inject_type = cast(type[R], hints.get("return"))
             self._token = token
             self._get_value_fn = get_value_fn
             self._singleton = singleton
@@ -66,15 +69,22 @@ class PyDit:
                 raise MissingPropertyTypeException
 
         @override
-        def __get__(self, _instance: Any, _obj: Any = None) -> R:
+        def __get__(self, instance: Any, obj: Any = None) -> R:
             if self._value is not None:
                 return self._value
 
-            self._value = self._get_value_fn(type_=self._inject_type, token=self._token, singleton=self._singleton)
+            self._value = self._get_value_fn(
+                type_=self._inject_type, token=self._token, singleton=self._singleton
+            )
 
             return self._value
 
-    def get_value(self, type_: type[R] | R | None = None, token: str | None = None, singleton: bool = False) -> R:
+    def get_value(
+        self,
+        type_: type[R] | Callable | None = None,
+        token: str | None = None,
+        singleton: bool = False,
+    ) -> R:
         """
         This function will resolve __init__ signature in the future
         """
@@ -82,7 +92,11 @@ class PyDit:
 
         dependency = resolver_response[0][0]
 
-        singleton_key = dependency.value if "__hash__" in dir(dependency.value) else dependency.token
+        singleton_key = (
+            dependency.value
+            if "__hash__" in dir(dependency.value)
+            else dependency.token
+        )
 
         if singleton and singleton_key in self.__singleton_instances:
             return cast(R, self.__singleton_instances[singleton_key])
@@ -150,7 +164,7 @@ class PyDit:
         if solved_klasses is None:
             solved_klasses = {}
 
-        for dependency, parameters in resolver_response:
+        for dependency, parameters, is_singleton in resolver_response:
             is_callable = callable(dependency.value)
 
             if not is_callable:
@@ -158,6 +172,10 @@ class PyDit:
                 continue
 
             proxies: list[DependencyProxy] = []
+
+            if is_singleton and dependency.value in self.__singleton_instances:
+                response.append(self.__singleton_instances[dependency.value])
+                continue
 
             if dependency.value in solved_klasses:
                 response.append(solved_klasses[dependency.value])
@@ -173,6 +191,9 @@ class PyDit:
 
             response.append(solved)
             solved_klasses[dependency.value] = solved
+
+            if is_singleton:
+                self.__singleton_instances[dependency.value] = solved
 
             if len(parameters) > 0:
                 solved_params = self._instantiate_type(parameters, solved_klasses)

@@ -158,7 +158,9 @@ class InjectionTest(unittest.TestCase):
             ],
         )
 
-        self._user_equal_to(service.repository, "uuid1", {"id": "uuid1", "name": "MrM4rc"})
+        self._user_equal_to(
+            service.repository, "uuid1", {"id": "uuid1", "name": "MrM4rc"}
+        )
 
     def test_should_inject_by_protocol_with_inheritance(self):
 
@@ -366,7 +368,9 @@ class InjectionTest(unittest.TestCase):
 
     def test_should_inject_value_by_constructor_inject(self):
         class MyService:
-            def __init__(self, config: dict[str, Any] = FunctionInject(token="service_config")):
+            def __init__(
+                self, config: dict[str, Any] = FunctionInject(token="service_config")
+            ):
                 self.config = config
 
         self.pydit.add_dependency({"key": "value"}, token="service_config")
@@ -399,7 +403,10 @@ class InjectionTest(unittest.TestCase):
 
         class MyService:
             def __init__(
-                self, test: int = 17, dep: DependencyKlass = FunctionInject(), name: str = "default_name"
+                self,
+                test: int = 17,
+                dep: DependencyKlass = FunctionInject(),
+                name: str = "default_name",
             ):
                 self.dep = dep
                 self.name = name
@@ -414,7 +421,9 @@ class InjectionTest(unittest.TestCase):
         self.assertEqual(service.name, "default_name")
         self.assertEqual(service.test, 17)
 
-    def test_should_throw_no_default_value_exception_when_no_default_value_is_provided(self):
+    def test_should_throw_no_default_value_exception_when_no_default_value_is_provided(
+        self,
+    ):
         class MyService:
             def __init__(self, test: int, name: str = "default_name"):
                 self.name = name
@@ -468,7 +477,8 @@ class InjectionTest(unittest.TestCase):
 
     def test_should_inject_value_inside_function(self):
         self.pydit.add_dependency(
-            {"host": "localhost", "port": 1234, "user": "user", "password": "teste"}, token="db_config"
+            {"host": "localhost", "port": 1234, "user": "user", "password": "teste"},
+            token="db_config",
         )
 
         class UrlParser(Protocol):
@@ -487,7 +497,10 @@ class InjectionTest(unittest.TestCase):
 
             return url
 
-        def test_2(test_fn: Callable[[], str] = FunctionInject(test), parser: UrlParser = FunctionInject()):
+        def test_2(
+            test_fn: Callable[[], str] = FunctionInject(test),
+            parser: UrlParser = FunctionInject(),
+        ):
             url = test_fn()
 
             return parser.parse(url)
@@ -507,7 +520,10 @@ class InjectionTest(unittest.TestCase):
             "db_config",
         )
 
-        def test(max_retry: int, db_config: dict[str, Any] = FunctionInject(token="db_config")):
+        def test(
+            max_retry: int,
+            db_config: dict[str, Any] = FunctionInject(token="db_config"),
+        ):
             url = f"{db_config['host']}:{db_config['port']}-{max_retry}"
 
             return url
@@ -518,6 +534,23 @@ class InjectionTest(unittest.TestCase):
 
         self.assertEqual(fn(1), "localhost:1234-1")
         self.assertEqual(fn(17), "localhost:1234-17")
+
+    def test_should_inject_singleton_instance_in_function(self):
+        class User:
+            def __init__(self):
+                self.id = uuid4()
+
+        def test(value: User = FunctionInject(singleton=True)):
+            return value
+
+        self.pydit.add_dependency(User)
+        self.pydit.add_dependency(test, token="test_fn")
+
+        fn = self.pydit.get_value(type_=test, token="test_fn")
+        fn2 = self.pydit.get_value(type_=test, token="test_fn")
+
+        self.assertEqual(fn(), fn2())
+        self.assertEqual(fn().id, fn2().id)
 
     def _create_users(self, user_service: Any) -> list[dict[str, Any]]:
         users = [
@@ -545,12 +578,16 @@ class InjectionTest(unittest.TestCase):
 
         self.assertEqual(len(users), expected_total)
 
-    def _users_equal_to(self, user_service: Any, expected_users: list[dict[str, Any]]) -> None:
+    def _users_equal_to(
+        self, user_service: Any, expected_users: list[dict[str, Any]]
+    ) -> None:
         users = user_service.list_()
 
         self.assertEqual(users, expected_users)
 
-    def _user_equal_to(self, user_service: Any, user_id: Any, expected_user: dict[str, Any]) -> None:
+    def _user_equal_to(
+        self, user_service: Any, user_id: Any, expected_user: dict[str, Any]
+    ) -> None:
         user = user_service.get_by_id(user_id)
 
         self.assertEqual(user, expected_user)
