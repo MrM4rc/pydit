@@ -12,7 +12,7 @@ class EmptyDependency:
     singleton: InitVar[bool] = False
     __pydit_meta__: dict[str, Any] = field(default_factory=dict)
 
-    def __post_init__(self, singleton: bool = False):
+    def __post_init__(self, singleton: bool = False) -> None:
         self.__pydit_meta__["singleton"] = singleton
 
 
@@ -25,7 +25,7 @@ class Dependency:
     singleton: InitVar[bool] = False
     __pydit_meta__: dict[str, Any] = field(default_factory=dict)
 
-    def __post_init__(self, singleton: bool = False):
+    def __post_init__(self, singleton: bool = False) -> None:
         self.__pydit_meta__["singleton"] = singleton
 
 

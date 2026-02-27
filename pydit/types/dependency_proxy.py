@@ -1,93 +1,102 @@
+from typing import cast
+from typing import TypeVar
 from typing import Any
 
 
-class DependencyProxy:
-    def __init__(self, value: Any):
+T = TypeVar("T")
+
+
+def DependencyProxy(value: T) -> T:
+    return cast(T, _DependencyProxy(value))
+
+
+class _DependencyProxy:
+    def __init__(self, value: Any) -> None:
         self._pydit_value = value
 
-    def __getattribute__(self, item: str):
-        if item in ["_get_real_dependency", "_pydit_value", "__is_proxy__"]:
-            return super().__getattribute__(item)
+    @property  # type: ignore[misc]
+    def __class__(self) -> type:  # pyrefly: ignore[bad-override]
+        return self.unwrap().__class__
 
-        real_dependency = self._get_real_dependency()
+    def __getattr__(self, name: str) -> Any:
+        if name in ["_get_real_dependency", "_pydit_value", "__is_proxy__", "unwrap"]:
+            raise AttributeError(
+                f"'{type(self).__name__}' object has no attribute '{name}'"
+            )
+        else:
+            real_dependency = self.unwrap()
+            return getattr(real_dependency, name)
 
-        return getattr(real_dependency, item)
-
-    def __setattr__(self, key: str, value: Any):
-        if key in ["_get_real_dependency", "_pydit_value", "__is_proxy__"]:
+    def __setattr__(self, key: str, value: Any) -> None:
+        if key in ["_get_real_dependency", "_pydit_value", "__is_proxy__", "unwrap"]:
             super().__setattr__(key, value)
         else:
-            real_dependency = self._get_real_dependency()
+            real_dependency = self.unwrap()
             setattr(real_dependency, key, value)
 
-    def __delattr__(self, item: str):
+    def __delattr__(self, item: str) -> None:
         if item in ["_get_real_dependency", "_pydit_value", "__is_proxy__"]:
             super().__delattr__(item)
         else:
-            real_dependency = self._get_real_dependency()
+            real_dependency = self.unwrap()
             delattr(real_dependency, item)
 
     def __eq__(self, other: object) -> bool:
-        if isinstance(other, DependencyProxy):
-            return self._get_real_dependency() == other._get_real_dependency()
+        if isinstance(other, _DependencyProxy):
+            return bool(self.unwrap() == other.unwrap())
 
-        return self._get_real_dependency() == other
+        return bool(self.unwrap() == other)
 
     def __ne__(self, other: object) -> bool:
         return not self.__eq__(other)
 
     def __hash__(self) -> int:
-        return hash(self._get_real_dependency())
+        return hash(self.unwrap())
 
     def __len__(self) -> int:
-        return len(self._get_real_dependency())
+        return len(self.unwrap())
 
-    def __iter__(self):
-        return iter(self._get_real_dependency())
+    def __iter__(self) -> Any:
+        return iter(self.unwrap())
 
     def __getitem__(self, item: Any) -> Any:
-        return self._get_real_dependency()[item]
+        return self.unwrap()[item]
 
     def __contains__(self, item: Any) -> bool:
-        return item in self._get_real_dependency()
+        return item in self.unwrap()
 
     def __bool__(self) -> bool:
-        return bool(self._get_real_dependency())
+        return bool(self.unwrap())
 
-    def __reduce__(self):
-        real_reduce = getattr(self._get_real_dependency(), "__reduce__", None)
+    def __reduce__(self) -> Any:
+        real_reduce = getattr(self.unwrap(), "__reduce__", None)
         if real_reduce:
             return real_reduce()
 
-        return self._get_real_dependency()
-    
+        return self.unwrap()
+
     def __repr__(self) -> str:
-        return repr(self._get_real_dependency())
+        return repr(self.unwrap())
 
     def __sizeof__(self) -> int:
-        return self._get_real_dependency().__sizeof__()
+        return int(self.unwrap().__sizeof__())
 
     def __format__(self, format_spec: str) -> str:
-        return self._get_real_dependency().__format__(format_spec)
+        return str(self.unwrap().__format__(format_spec))
 
     def __str__(self) -> str:
-        return str(self._get_real_dependency())
-
-    def _get_real_dependency(self) -> Any:
-        value = super().__getattribute__("_pydit_value")
-
-        if callable(value):
-            return value()
-
-        return value
+        return str(self.unwrap())
 
     def __is_proxy__(self) -> bool:
         return True
 
+    def unwrap(self) -> Any:
+        return self._pydit_value
+
 
 def create_proxy_method(method_name: str) -> Any:
-    def proxy_method(self: DependencyProxy, *args: Any, **kwargs: Any) -> Any:
-        real_dependency = self._get_real_dependency()
+    def proxy_method(self: _DependencyProxy, *args: Any, **kwargs: Any) -> Any:
+        real_dependency = self.unwrap()
         method = getattr(real_dependency, method_name)
         return method(*args, **kwargs)
 
@@ -173,11 +182,11 @@ _special_names = [
 ]
 
 for dunder in _special_names:
-    if hasattr(DependencyProxy, dunder):
+    if hasattr(_DependencyProxy, dunder):
         continue
 
     setattr(
-        DependencyProxy,
+        _DependencyProxy,
         dunder,
         create_proxy_method(dunder),
     )

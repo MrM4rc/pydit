@@ -7,7 +7,7 @@ from pydit.core.register import injectable
 from pydit.core.resolver import DependencyMapping, DependencyResolver
 from pydit.exceptions.missing_property_type import MissingPropertyTypeException
 from pydit.types.dependency_property import DependencyPropertyType
-from pydit.types.dependency_proxy import DependencyProxy
+from pydit.types.dependency_proxy import _DependencyProxy as DependencyProxy
 from pydit.utils.logging import disable_all_loggers
 
 
@@ -15,24 +15,48 @@ R = TypeVar("R")
 
 
 class GetInstanceFnType(Protocol[R]):
-    def __call__(
-        self, type_: type[R] | Callable, token: str | None = None, singleton: bool = False
+    @overload
+    def __call__(  # type: ignore[overload-overlap] # pyright: ignore[reportOverlappingOverload]
+        self,
+        type_: type[R],
+        token: str | None = None,
+        singleton: bool = False,
     ) -> R: ...
+
+    @overload
+    def __call__(
+        self,
+        type_: Callable[..., R],
+        token: str | None = None,
+        singleton: bool = False,
+    ) -> Callable[..., R]: ...
+
+    def __call__(
+        self,
+        type_: type[R] | Callable[..., R] | None = None,
+        token: str | None = None,
+        singleton: bool = False,
+    ) -> R | Callable[..., R]: ...
+
+
+InjectType = Callable[[Callable[..., R]], R]
 
 
 class PyDit:
     __singleton_instances: dict[Any, Any] = {}
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._dep_resolver = DependencyResolver()
 
     def disable_logging(self):
         disable_all_loggers()
 
-    def add_dependency(self, value: Any, token: str | None = None):
+    def add_dependency(self, value: Any, token: str | None = None) -> None:
         injectable(value, token=token)
 
-    def inject(self, *, token: str | None = None, singleton: bool = False):
+    def inject(
+        self, *, token: str | None = None, singleton: bool = False
+    ) -> Callable[[Callable[..., R]], DependencyPropertyType[R]]:
         def decorator(func: Callable[..., R]) -> DependencyPropertyType[R]:
             return self.DependencyProperty(
                 func=func,
@@ -44,7 +68,7 @@ class PyDit:
         return decorator
 
     class DependencyProperty(DependencyPropertyType[R]):
-        _inject_type: type[R] | Callable
+        _inject_type: type[R] | Callable[..., Any]
         _token: str | None = None
         _get_value_fn: GetInstanceFnType[R]
         _value: Any = None
@@ -77,14 +101,24 @@ class PyDit:
                 type_=self._inject_type, token=self._token, singleton=self._singleton
             )
 
-            return self._value
+            return cast(R, self._value)
+
+    @overload
+    def get_value(  # type: ignore[overload-overlap] # pyright: ignore[reportOverlappingOverload]
+        self, type_: type[R], token: str | None = None, singleton: bool = False
+    ) -> R: ...
+
+    @overload
+    def get_value(
+        self, type_: Callable[..., R], token: str | None = None, singleton: bool = False
+    ) -> Callable[..., R]: ...
 
     def get_value(
         self,
-        type_: type[R] | Callable | None = None,
+        type_: type[R] | Callable[..., R] | None = None,
         token: str | None = None,
         singleton: bool = False,
-    ) -> R:
+    ) -> R | Callable[..., R]:
         """
         This function will resolve __init__ signature in the future
         """
@@ -120,29 +154,33 @@ class PyDit:
     ) -> list[Any]:
         response: list[Any] = []
 
-        def get_real_values_by_proxies(*args: Any, **kwargs: Any):
-            new_args: Any = []
-            new_kwargs: Any = {}
+        def get_real_values_by_proxies(
+            *args: Any, **kwargs: Any
+        ) -> tuple[list[Any], dict[str, Any]]:
+            new_args: list[Any] = []
+            new_kwargs: dict[str, Any] = {}
 
             for arg in args:
-                if isinstance(arg, DependencyProxy):
-                    new_args.append(arg._pydit_value)  # type: ignore
+                if hasattr(arg, "__is_proxy__"):
+                    new_args.append(arg.unwrap())
                     continue
                 new_args.append(arg)
 
             for key, value in kwargs.items():
-                if isinstance(value, DependencyProxy):
-                    new_kwargs[key] = value._pydit_value  # type: ignore
+                if hasattr(value, "__is_proxy__"):
+                    new_kwargs[key] = value.unwrap()
                     continue
                 new_kwargs[key] = value
 
             return new_args, new_kwargs
 
-        def fn_injection(*args: Any, **kwargs: Any):
-            def decorator(fn: Callable[..., Any]):
+        def fn_injection(
+            *args: Any, **kwargs: Any
+        ) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
+            def decorator(fn: Callable[..., Any]) -> Callable[..., Any]:
 
                 @functools.wraps(fn)
-                def wrapper(*other_args: Any, **other_kwargs: Any):
+                def wrapper(*other_args: Any, **other_kwargs: Any) -> Any:
                     new_args, new_kwargs = get_real_values_by_proxies(
                         *[*other_args, *args], **{**other_kwargs, **kwargs}
                     )
@@ -150,7 +188,7 @@ class PyDit:
                     return fn(*new_args, **new_kwargs)
 
                 @functools.wraps(fn)
-                async def async_wrapper(*other_args: Any, **other_kwargs: Any):
+                async def async_wrapper(*other_args: Any, **other_kwargs: Any) -> Any:
                     new_args, new_kwargs = get_real_values_by_proxies(
                         *[*other_args, *args], *{**other_kwargs, **kwargs}
                     )

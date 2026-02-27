@@ -22,13 +22,13 @@ python = "^3.10"
 
 
 [tool.poetry.group.dev.dependencies]
-pyright = "^1.1.382.post1"
 flake8 = "^7.0.0"
 debugpy = "^1.8.6"
 black = "^24.8.0"
 pyproject-flake8 = "^7.0.0"
 basedpyright = "^1.18.2"
 pytest = "^8.3.3"
+mypy = "^1.19.1"
 
 [build-system]
 requires = ["poetry-core"]
@@ -39,6 +39,10 @@ line-length = 115
 
 [tool.flake8]
 max-line-length = 115
+
+[tool.pyrefly.errors]
+invalid-type-alias = "ignore"
+
 
 [tool.pyright]
 typeCheckingMode = "strict"

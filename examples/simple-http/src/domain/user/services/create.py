@@ -8,7 +8,7 @@ class CreateUserService:
     def __init__(self, repository: UserRepository):
         self.repository = repository
 
-    def execute(self, data: CreateUserModel):
+    def execute(self, data: CreateUserModel) -> None:
         user = UserModel(
             id=data.id,
             name=data.name,
@@ -19,7 +19,7 @@ class CreateUserService:
         self.repository.save(data=user)
 
 
-def create_user_fn(data: CreateUserModel, repository: UserRepository = FunctionInject(UserRepository)):
+def create_user_fn(data: CreateUserModel, repository: UserRepository = FunctionInject(UserRepository)) -> None:
     user = UserModel(
         id=data.id,
         name=data.name,

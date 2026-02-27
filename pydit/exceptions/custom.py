@@ -3,5 +3,5 @@ class CustomException(Exception):
         super().__init__(message)
         self._message = message
 
-    def get_message(self):
+    def get_message(self) -> str:
         return self._message

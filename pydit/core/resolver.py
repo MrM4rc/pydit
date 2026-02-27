@@ -22,7 +22,7 @@ DependencyMapping = list[tuple[IDependency, "DependencyMapping", bool]]
 
 
 class DependencyResolver:
-    def __init__(self):
+    def __init__(self) -> None:
         self.logger = get_logger("pydit.core.resolver")
         self._solved_types: (
             dict[type[Any] | Callable[..., Any], DependencyMapping] | None
@@ -314,4 +314,6 @@ class DependencyResolver:
         if not hasattr(dependency, "__pydit_meta__"):
             return False
 
-        return cast(dict[str, Any], dependency.__pydit_meta__).get("singleton", False)
+        return bool(
+            cast(dict[str, Any], dependency.__pydit_meta__).get("singleton", False)
+        )

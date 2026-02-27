@@ -1,3 +1,4 @@
+from pydit.types.dependency_proxy import _DependencyProxy
 from abc import ABC, abstractmethod
 from typing import Any, Callable, Protocol, cast
 from typing_extensions import override
@@ -101,7 +102,7 @@ class InjectionTest(unittest.TestCase):
                 return cast(Any, None)
 
             @override
-            def create(self, data: dict[str, Any]):
+            def create(self, data: dict[str, Any]) -> None:
                 self._users.append(data)
 
             @override
@@ -134,10 +135,10 @@ class InjectionTest(unittest.TestCase):
             def repository(self) -> IUserRepository:
                 return cast(Any, None)
 
-            def create(self, user: dict[str, Any]):
+            def create(self, user: dict[str, Any]) -> None:
                 self.repository.create(user)
 
-            def get_by_id(self, id_: UUID):
+            def get_by_id(self, id_: UUID) -> dict[str, Any]:
                 return self.repository.get_by_id(id_)
 
             def list_(self):
@@ -188,7 +189,7 @@ class InjectionTest(unittest.TestCase):
                 return cast(Any, None)
 
             @override
-            def create(self, data: UserType):
+            def create(self, data: UserType) -> None:
                 self._users.append(data)
 
             @override
@@ -221,10 +222,10 @@ class InjectionTest(unittest.TestCase):
             def repository(self) -> IUserRepository:
                 return cast(Any, None)
 
-            def create(self, user: dict[str, Any]):
+            def create(self, user: dict[str, Any]) -> None:
                 self.repository.create(user)
 
-            def get_by_id(self, id_: UUID):
+            def get_by_id(self, id_: UUID) -> dict[str, Any]:
                 return self.repository.get_by_id(id_)
 
             def list_(self):
@@ -270,7 +271,7 @@ class InjectionTest(unittest.TestCase):
             def credentials(self) -> dict[str, Any]:
                 return cast(Any, None)
 
-            def create(self, data: UserType):
+            def create(self, data: UserType) -> None:
                 self._users.append(data)
 
             def get_by_id(self, id_: UUID) -> UserType:
@@ -301,10 +302,10 @@ class InjectionTest(unittest.TestCase):
             def repository(self) -> IUserRepository:
                 return cast(Any, None)
 
-            def create(self, user: dict[str, Any]):
+            def create(self, user: dict[str, Any]) -> None:
                 self.repository.create(user)
 
-            def get_by_id(self, id_: UUID):
+            def get_by_id(self, id_: UUID) -> dict[str, Any]:
                 return self.repository.get_by_id(id_)
 
             def list_(self):
@@ -441,9 +442,11 @@ class InjectionTest(unittest.TestCase):
         a_instance = self.pydit.get_value(CircularDependencyA)
 
         self.assertIsInstance(a_instance, CircularDependencyA)
-        self.assertIsInstance(a_instance.b, CircularDependencyB)
-        self.assertTrue(a_instance.b.__is_proxy__())  # type: ignore
-        self.assertEqual(a_instance.id, a_instance.b.a.id)
+        self.assertIsInstance(a_instance.b, _DependencyProxy)
+        b = cast(_DependencyProxy, a_instance.b)
+        self.assertTrue(b.__is_proxy__())
+        self.assertIsInstance(b.unwrap(), CircularDependencyB)
+        self.assertEqual(a_instance.id, b.unwrap().a.id)
 
     def test_should_resolve_circular_dependencies_with_multiple_levels(self):
         self.pydit.add_dependency(CircularDependencyC)
@@ -453,11 +456,15 @@ class InjectionTest(unittest.TestCase):
         c_instance = self.pydit.get_value(CircularDependencyC)
 
         self.assertIsInstance(c_instance, CircularDependencyC)
-        self.assertIsInstance(c_instance.d, CircularDependencyD)
-        self.assertTrue(c_instance.d.__is_proxy__())  # type: ignore
-        self.assertIsInstance(c_instance.d.e, CircularDependencyE)
-        self.assertTrue(c_instance.d.e.__is_proxy__())  # type: ignore
-        self.assertEqual(c_instance.id, c_instance.d.e.c.id)
+        self.assertIsInstance(c_instance.d, _DependencyProxy)
+        d = cast(_DependencyProxy, c_instance.d)
+        self.assertTrue(d.__is_proxy__())
+        self.assertIsInstance(d.unwrap(), CircularDependencyD)
+        self.assertIsInstance(d.unwrap().e, _DependencyProxy)
+        e = cast(_DependencyProxy, d.unwrap().e)
+        self.assertTrue(e.__is_proxy__())
+        self.assertIsInstance(e.unwrap(), CircularDependencyE)
+        self.assertEqual(c_instance.id, d.unwrap().e.c.id)
 
     def test_should_resolve_circular_dependencies_using_inject_decorator(self):
         class ServiceA:
@@ -470,9 +477,11 @@ class InjectionTest(unittest.TestCase):
 
         service = ServiceA()
 
-        self.assertIsInstance(service.service_a, CircularDependencyA)
-        self.assertIsInstance(service.service_a.b, CircularDependencyB)
         self.assertTrue(service.service_a.b.__is_proxy__())  # type: ignore
+        self.assertIsInstance(service.service_a, CircularDependencyA)
+        self.assertIsInstance(service.service_a.b, _DependencyProxy)
+        b = cast(_DependencyProxy, service.service_a.b)
+        self.assertIsInstance(b.unwrap(), CircularDependencyB)
         self.assertEqual(service.service_a.id, service.service_a.b.a.id)
 
     def test_should_inject_value_inside_function(self):
@@ -492,7 +501,7 @@ class InjectionTest(unittest.TestCase):
 
         self.pydit.add_dependency(RawUrlParser)
 
-        def test(db_config: dict[str, Any] = FunctionInject(token="db_config")):
+        def test(db_config: dict[str, Any] = FunctionInject(token="db_config")) -> str:
             url = f"{db_config['host']}:{db_config['port']}"
 
             return url
@@ -500,7 +509,7 @@ class InjectionTest(unittest.TestCase):
         def test_2(
             test_fn: Callable[[], str] = FunctionInject(test),
             parser: UrlParser = FunctionInject(),
-        ):
+        ) -> str:
             url = test_fn()
 
             return parser.parse(url)
@@ -523,7 +532,7 @@ class InjectionTest(unittest.TestCase):
         def test(
             max_retry: int,
             db_config: dict[str, Any] = FunctionInject(token="db_config"),
-        ):
+        ) -> str:
             url = f"{db_config['host']}:{db_config['port']}-{max_retry}"
 
             return url
@@ -540,7 +549,7 @@ class InjectionTest(unittest.TestCase):
             def __init__(self):
                 self.id = uuid4()
 
-        def test(value: User = FunctionInject(singleton=True)):
+        def test(value: User = FunctionInject(singleton=True)) -> User:
             return value
 
         self.pydit.add_dependency(User)

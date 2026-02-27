@@ -1,16 +1,17 @@
+from typing import Any
 import unittest
 from pydit.types.dependency_proxy import DependencyProxy
 
 class Number:
-    def __init__(self, value):
+    def __init__(self, value: Any) -> None:
         self.value = value
 
-    def __add__(self, other):
+    def __add__(self, other: Any) -> "Number":
         if isinstance(other, Number):
             return Number(self.value + other.value)
         return Number(self.value + other)
     
-    def __radd__(self, other):
+    def __radd__(self, other: Any) -> "Number":
         return self.__add__(other)
 
     def __sub__(self, other):
