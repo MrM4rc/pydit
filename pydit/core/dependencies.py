@@ -32,3 +32,5 @@ class Dependency:
 dependencies: dict[str, IDependency] = {}
 
 subclasses_map: dict[type[Any] | Callable[..., Any], list[IDependency]] = {}
+
+singleton_instances: dict[Any, Any] = {}

@@ -1,3 +1,4 @@
+from pydit.core.dependencies import singleton_instances
 from typing import overload
 import functools
 import inspect
@@ -43,8 +44,6 @@ InjectType = Callable[[Callable[..., R]], R]
 
 
 class PyDit:
-    __singleton_instances: dict[Any, Any] = {}
-
     def __init__(self) -> None:
         self._dep_resolver = DependencyResolver()
 
@@ -132,8 +131,8 @@ class PyDit:
             else dependency.token
         )
 
-        if singleton and singleton_key in self.__singleton_instances:
-            return cast(R, self.__singleton_instances[singleton_key])
+        if singleton and singleton_key in singleton_instances:
+            return cast(R, singleton_instances[singleton_key])
 
         is_callable = callable(dependency.value)
 
@@ -143,7 +142,7 @@ class PyDit:
         response = self._instantiate_type(resolver_response)[0]
 
         if singleton:
-            self.__singleton_instances[singleton_key] = response
+            singleton_instances[singleton_key] = response
 
         return response
 
@@ -211,8 +210,8 @@ class PyDit:
 
             proxies: list[DependencyProxy] = []
 
-            if is_singleton and dependency.value in self.__singleton_instances:
-                response.append(self.__singleton_instances[dependency.value])
+            if is_singleton and dependency.value in singleton_instances:
+                response.append(singleton_instances[dependency.value])
                 continue
 
             if dependency.value in solved_klasses:
@@ -231,7 +230,7 @@ class PyDit:
             solved_klasses[dependency.value] = solved
 
             if is_singleton:
-                self.__singleton_instances[dependency.value] = solved
+                singleton_instances[dependency.value] = solved
 
             if len(parameters) > 0:
                 solved_params = self._instantiate_type(parameters, solved_klasses)
